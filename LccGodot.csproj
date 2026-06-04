@@ -4,4 +4,9 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="3rdPlugins\" />
+    <Folder Include="Framework\Launch\" />
+    <Folder Include="Hotfix\Framework\CorePackage\" />
+  </ItemGroup>
 </Project>
