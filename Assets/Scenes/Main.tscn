@@ -1,6 +1,0 @@
-[gd_scene format=3 uid="uid://baepl2mqwdevr"]
-
-[ext_resource type="Script" path="res://Assets/Framework/Launch/Launcher.cs" id="1_launcher"]
-
-[node name="Main" type="Node" unique_id=416758072]
-script = ExtResource("1_launcher")
