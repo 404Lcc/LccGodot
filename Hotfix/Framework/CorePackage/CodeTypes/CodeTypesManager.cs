@@ -1,76 +1,83 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 
 namespace LccHotfix
 {
-    internal sealed class CodeTypesManager : Module, ICodeTypesService
+    internal class CodeTypesManager : Module, ICodeTypesService
     {
-        private readonly Dictionary<string, Type> _allTypes = new();
-        private readonly Dictionary<Type, HashSet<Type>> _attributeTypes = new();
+        private readonly Dictionary<string, Type> allTypes = new Dictionary<string, Type>();
+        private readonly UnOrderMultiMapSet<Type, Type> types = new UnOrderMultiMapSet<Type, Type>();
 
-        public void LoadTypes(params Assembly[] assemblies)
+        internal override void Update(float elapseSeconds, float realElapseSeconds)
         {
-            foreach (var pair in GetAssemblyTypes(assemblies))
-            {
-                _allTypes[pair.Key] = pair.Value;
-
-                if (pair.Value.IsAbstract)
-                {
-                    continue;
-                }
-
-                foreach (var attribute in pair.Value.GetCustomAttributes(typeof(AttributeBase), true))
-                {
-                    var attributeType = attribute.GetType();
-                    if (!_attributeTypes.TryGetValue(attributeType, out var set))
-                    {
-                        set = new HashSet<Type>();
-                        _attributeTypes[attributeType] = set;
-                    }
-
-                    set.Add(pair.Value);
-                }
-            }
-        }
-
-        public Dictionary<string, Type> GetAssemblyTypes(params Assembly[] assemblies)
-        {
-            var result = new Dictionary<string, Type>();
-            foreach (var assembly in assemblies)
-            {
-                foreach (var type in assembly.GetTypes())
-                {
-                    if (type.FullName != null)
-                    {
-                        result[type.FullName] = type;
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        public HashSet<Type> GetTypes(Type attributeType)
-        {
-            return _attributeTypes.TryGetValue(attributeType, out var set) ? new HashSet<Type>(set) : new HashSet<Type>();
-        }
-
-        public Dictionary<string, Type> GetTypes()
-        {
-            return new Dictionary<string, Type>(_allTypes);
-        }
-
-        public Type? GetType(string typeName)
-        {
-            _allTypes.TryGetValue(typeName, out var type);
-            return type;
         }
 
         internal override void Shutdown()
         {
-            _allTypes.Clear();
-            _attributeTypes.Clear();
         }
+
+
+
+        public void LoadTypes(Assembly[] assemblies)
+        {
+            Dictionary<string, Type> addTypes = GetAssemblyTypes(assemblies);
+            foreach ((string fullName, Type type) in addTypes)
+            {
+                this.allTypes[fullName] = type;
+
+                if (type.IsAbstract)
+                {
+                    continue;
+                }
+
+                // 记录所有的有BaseAttribute标记的的类型
+                object[] objects = type.GetCustomAttributes(typeof(AttributeBase), true);
+
+                foreach (object o in objects)
+                {
+                    this.types.Add(o.GetType(), type);
+                }
+            }
+        }
+        public Dictionary<string, Type> GetAssemblyTypes(params Assembly[] args)
+        {
+            Dictionary<string, Type> types = new Dictionary<string, Type>();
+
+            foreach (Assembly ass in args)
+            {
+                var ts = ass.GetTypes();
+                foreach (Type type in ts)
+                {
+                    types[type.FullName] = type;
+                }
+            }
+
+            return types;
+        }
+
+        public HashSet<Type> GetTypes(Type systemAttributeType)
+        {
+            if (!this.types.ContainsKey(systemAttributeType))
+            {
+                return new HashSet<Type>();
+            }
+
+            return this.types[systemAttributeType];
+        }
+
+        public Dictionary<string, Type> GetTypes()
+        {
+            return allTypes;
+        }
+
+        public Type GetType(string typeName)
+        {
+            Type type = null;
+            this.allTypes.TryGetValue(typeName, out type);
+            return type;
+        }
+
+
     }
 }

@@ -1,23 +1,43 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace LccHotfix
 {
-    public sealed class ThreadSynchronizationContext
+    public class ThreadSynchronizationContext : SynchronizationContext
     {
-        private readonly ConcurrentQueue<Action> _queue = new();
+        private readonly ConcurrentQueue<Action> queue = new ConcurrentQueue<Action>();
 
-        public void Post(Action action)
-        {
-            _queue.Enqueue(action);
-        }
+        private Action _action;
 
         public void Update()
         {
-            while (_queue.TryDequeue(out var action))
+            while (true)
             {
-                action.Invoke();
+                if (!queue.TryDequeue(out _action))
+                {
+                    return;
+                }
+
+                try
+                {
+                    _action();
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e);
+                }
             }
+        }
+
+        public override void Post(SendOrPostCallback callback, object state)
+        {
+            Post(() => callback(state));
+        }
+
+        public void Post(Action action)
+        {
+            queue.Enqueue(action);
         }
     }
 }

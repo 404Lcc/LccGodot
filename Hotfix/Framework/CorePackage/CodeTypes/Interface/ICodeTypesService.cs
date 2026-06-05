@@ -6,10 +6,10 @@ namespace LccHotfix
 {
     public interface ICodeTypesService : IService
     {
-        void LoadTypes(params Assembly[] assemblies);
-        Dictionary<string, Type> GetAssemblyTypes(params Assembly[] assemblies);
-        HashSet<Type> GetTypes(Type attributeType);
+        void LoadTypes(Assembly[] assemblies);
+        Dictionary<string, Type> GetAssemblyTypes(params Assembly[] args);
+        HashSet<Type> GetTypes(Type systemAttributeType);
         Dictionary<string, Type> GetTypes();
-        Type? GetType(string typeName);
+        Type GetType(string typeName);
     }
 }

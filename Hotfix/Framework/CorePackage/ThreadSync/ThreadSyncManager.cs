@@ -2,9 +2,14 @@ using System;
 
 namespace LccHotfix
 {
-    internal sealed class ThreadSyncManager : Module, IThreadSyncService
+    public class ThreadSyncManager : Module, IThreadSyncService
     {
-        private ThreadSynchronizationContext? _context = new();
+        public ThreadSynchronizationContext _context;
+
+        public ThreadSyncManager()
+        {
+            _context = new ThreadSynchronizationContext();
+        }
 
         internal override void Update(float elapseSeconds, float realElapseSeconds)
         {

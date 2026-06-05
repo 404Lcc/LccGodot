@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Godot;
 
 namespace LccHotfix
 {
@@ -67,7 +66,6 @@ namespace LccHotfix
                 int index = GetIndex(key);
                 if (index == -1)
                 {
-                    GD.PrintErr($"key = {key} not found!");
                     return;
                 }
 

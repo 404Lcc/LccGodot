@@ -26,7 +26,7 @@ namespace LccHotfix
                     break;
 
                 case LogLevel.Warning:
-                    GD.PrintErr(message.ToString());
+                    GD.Print(message.ToString());
                     break;
 
                 case LogLevel.Error:

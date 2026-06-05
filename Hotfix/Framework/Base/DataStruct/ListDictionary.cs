@@ -1,7 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Godot;
 
 namespace LccHotfix
 {
@@ -31,7 +29,6 @@ namespace LccHotfix
         {
             if (_dict.ContainsKey(key))
             {
-                GD.PrintErr($"Add Repeated key: {key}");
                 return;
             }
 
@@ -141,7 +138,6 @@ namespace LccHotfix
                 int idx = GetIdx(key);
                 if (idx == -1)
                 {
-                    GD.PrintErr($"key = {key} not found!");
                     return;
                 }
 
