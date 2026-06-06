@@ -12,8 +12,7 @@ namespace LccHotfix
             base.Release(obj);
             if (obj != null)
             {
-                obj.GameObject.GetParent().RemoveChild(obj.GameObject);
-                Root.AddChild(obj.GameObject);
+                obj.GameObject.Reparent(Root);
             }
         }
     }
