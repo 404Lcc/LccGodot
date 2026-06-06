@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using LccHotfix;
 
 namespace LccModel
 {
@@ -20,6 +21,7 @@ namespace LccModel
 		{
 			Status = LauncherOperationStatus.Running;
 
+			Init.Start();
 			SetFinish();
 		}
 

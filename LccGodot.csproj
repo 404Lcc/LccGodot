@@ -7,6 +7,8 @@
   <ItemGroup>
     <Folder Include="3rdPlugins\" />
     <Folder Include="Framework\Launch\" />
+    <Folder Include="Framework\Utility\" />
     <Folder Include="Hotfix\Framework\CorePackage\" />
+    <Folder Include="Hotfix\GameLogic\Package\" />
   </ItemGroup>
 </Project>
