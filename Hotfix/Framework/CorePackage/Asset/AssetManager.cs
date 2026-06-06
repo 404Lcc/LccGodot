@@ -1,115 +1,98 @@
-using Godot;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Godot;
 
 namespace LccHotfix
 {
-    internal sealed class AssetManager : Module, IAssetService
+    internal class AssetManager : Module, IAssetService
     {
-        private readonly List<IAssetLoadOperation> _loadOperationList = new();
+        public const string DefaultPackageName = "DefaultPackage";
+        public const string RawFilePackageName = "RawFilePackage";
+
+        public ResourcePackage DefaultPackage { get; private set; }
+        public ResourcePackage RawFilePackage { get; private set; }
+
+        private readonly Dictionary<EAssetGroup, AssetLoader> _loader = new();
+
+        public AssetManager()
+        {
+            DefaultPackage = new ResourcePackage();
+            RawFilePackage = new ResourcePackage();
+        }
 
         internal override void Update(float elapseSeconds, float realElapseSeconds)
         {
-            for (var i = _loadOperationList.Count - 1; i >= 0; i--)
-            {
-                var operation = _loadOperationList[i];
-                operation.Update();
 
-                if (operation.IsDone)
-                {
-                    _loadOperationList.RemoveAt(i);
-                }
-            }
         }
 
         internal override void Shutdown()
         {
-            foreach (var operation in _loadOperationList)
-            {
-                operation.Cancel();
-            }
-
-            _loadOperationList.Clear();
+            foreach (var loader in _loader.Values)
+                loader.Release();
+            _loader.Clear();
         }
 
-        public T Load<T>(string path) where T : Resource
+        public void Release(EAssetGroup group)
         {
-            if (!ResourceLoader.Exists(path))
-            {
-                return null;
-            }
-
-            return ResourceLoader.Load<T>(path);
+            if (_loader.TryGetValue(group, out var loader))
+                loader.Release();
+            _loader.Remove(group);
         }
 
-        public Task<T> LoadAsync<T>(string path) where T : Resource
+        public void Release(string location, EAssetGroup group = EAssetGroup.Default)
         {
-            if (!ResourceLoader.Exists(path))
-            {
-                return null;
-            }
-
-            var error = ResourceLoader.LoadThreadedRequest(path);
-            if (error != Error.Ok)
-            {
-                return null;
-            }
-
-            var operation = new AssetLoadOperation<T>(path);
-            _loadOperationList.Add(operation);
-            return operation.Task;
+            if (_loader.TryGetValue(group, out var loader))
+                loader.Release(location);
         }
 
-        private interface IAssetLoadOperation
+        public void LoadAssetAsync(string location, System.Action<AssetHandle> callback, EAssetGroup group = EAssetGroup.Default, uint priority = 0)
         {
-            bool IsDone { get; }
-            void Update();
-            void Cancel();
+            GetOrCreateLoader(group).LoadAssetAsync(location, callback, priority);
         }
 
-        private sealed class AssetLoadOperation<T> : IAssetLoadOperation where T : Resource
+        public void LoadAssetAsync<T>(string location, System.Action<AssetHandle> callback, EAssetGroup group = EAssetGroup.Default, uint priority = 0) where T : Resource
         {
-            private readonly string _path;
-            private readonly TaskCompletionSource<T> _taskCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            GetOrCreateLoader(group).LoadAssetAsync<T>(location, callback, priority);
+        }
 
-            public bool IsDone { get; private set; }
-            public Task<T> Task => _taskCompletionSource.Task;
+        public void LoadAssetRawFileAsync(string location, System.Action<RawFileHandle> callback, EAssetGroup group = EAssetGroup.Default, uint priority = 0)
+        {
+            GetOrCreateLoader(group).LoadAssetRawFileAsync(location, callback, priority);
+        }
 
-            public AssetLoadOperation(string path)
+        public AssetHandle LoadAssetSync(string location, EAssetGroup group = EAssetGroup.Default)
+        {
+            return GetOrCreateLoader(group).LoadAssetSync(location);
+        }
+
+        public AssetHandle LoadAssetSync<T>(string location, EAssetGroup group = EAssetGroup.Default) where T : Resource
+        {
+            return GetOrCreateLoader(group).LoadAssetSync<T>(location);
+        }
+
+        public RawFileHandle LoadAssetRawFileSync(string location, EAssetGroup group = EAssetGroup.Default)
+        {
+            return GetOrCreateLoader(group).LoadAssetRawFileSync(location);
+        }
+
+        public Task<T> LoadAsync<T>(string location, EAssetGroup group = EAssetGroup.Default) where T : Resource
+        {
+            var taskCompletionSource = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            LoadAssetAsync<T>(location, handle =>
             {
-                _path = path;
-            }
+                taskCompletionSource.TrySetResult(handle.AssetObject as T);
+            }, group);
+            return taskCompletionSource.Task;
+        }
 
-            public void Update()
-            {
-                if (IsDone)
-                {
-                    return;
-                }
-
-                var status = ResourceLoader.LoadThreadedGetStatus(_path);
-                switch (status)
-                {
-                    case ResourceLoader.ThreadLoadStatus.InProgress:
-                        return;
-                    case ResourceLoader.ThreadLoadStatus.Loaded:
-                        IsDone = true;
-                        _taskCompletionSource.TrySetResult(ResourceLoader.LoadThreadedGet(_path) as T);
-                        return;
-                    case ResourceLoader.ThreadLoadStatus.Failed:
-                    case ResourceLoader.ThreadLoadStatus.InvalidResource:
-                    default:
-                        IsDone = true;
-                        _taskCompletionSource.TrySetResult(null);
-                        return;
-                }
-            }
-
-            public void Cancel()
-            {
-                IsDone = true;
-                _taskCompletionSource.TrySetCanceled();
-            }
+        private AssetLoader GetOrCreateLoader(EAssetGroup group)
+        {
+            if (_loader.TryGetValue(group, out var loader))
+                return loader;
+            loader = new AssetLoader();
+            _loader.Add(group, loader);
+            return loader;
         }
     }
 }
