@@ -3,6 +3,7 @@ using Godot;
 
 public partial class Launcher
 {
+    private ulong _lastTicksUsec;
     private float _elapseSeconds;
     private float _realElapseSeconds;
 
@@ -20,8 +21,12 @@ public partial class Launcher
 
     public override void _Process(double delta)
     {
-        _elapseSeconds = (float)delta;
-        _realElapseSeconds = (float)delta;
+        var nowTicksUsec = Time.GetTicksUsec();
+        var deltaTime = (float)delta;
+
+        _elapseSeconds = deltaTime;
+        _realElapseSeconds = _lastTicksUsec > 0 ? (nowTicksUsec - _lastTicksUsec) / 1000000f : deltaTime;
+        _lastTicksUsec = nowTicksUsec;
 
         if (OnUpdate != null)
         {
@@ -36,9 +41,6 @@ public partial class Launcher
 
     public void ExcuteClose()
     {
-        if (OnClose != null)
-        {
-            OnClose();
-        }
+        OnClose?.Invoke();
     }
 }
