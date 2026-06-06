@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Godot;
 
 namespace LccHotfix
 {
@@ -13,17 +12,14 @@ namespace LccHotfix
         public void Release(string location) => _loader.Release(location);
         public AssetHandle TryGetAsset(string location) => _loader.TryGetAsset(location);
         public void LoadAssetAsync(string location, System.Action<AssetHandle> callback, uint priority = 0) => _loader.LoadAssetAsync(location, callback, priority);
-        public void LoadAssetAsync<T>(string location, System.Action<AssetHandle> callback, uint priority = 0) where T : Resource => _loader.LoadAssetAsync<T>(location, callback, priority);
-        public void LoadAssetRawFileAsync(string location, System.Action<RawFileHandle> onCompleted, uint priority = 0) => _loader.LoadAssetRawFileAsync(location, onCompleted, priority);
+        public void LoadAssetAsync<T>(string location, System.Action<AssetHandle> callback, uint priority = 0) where T : Godot.Resource => _loader.LoadAssetAsync<T>(location, callback, priority);
         public AssetHandle LoadAssetSync(string location) => _loader.LoadAssetSync(location);
         public AssetHandle LoadAssetSync<T>(string location) => _loader.LoadAssetSync<T>(location);
-        public RawFileHandle LoadAssetRawFileSync(string location) => _loader.LoadAssetRawFileSync(location);
     }
 
     public class AssetLoader : IAssetLoader
     {
         private Dictionary<string, AssetHandle> _assetHandles = new Dictionary<string, AssetHandle>();
-        private Dictionary<string, RawFileHandle> _rawFileHandles = new Dictionary<string, RawFileHandle>();
 
         public static IAssetLoader Create()
         {
@@ -41,16 +37,6 @@ namespace LccHotfix
 
                 _assetHandles.Clear();
             }
-
-            if (_rawFileHandles != null)
-            {
-                foreach (var handle in _rawFileHandles)
-                {
-                    handle.Value.Release();
-                }
-
-                _rawFileHandles.Clear();
-            }
         }
 
         public void Release(string location)
@@ -59,14 +45,6 @@ namespace LccHotfix
             {
                 handle.Release();
                 _assetHandles.Remove(location);
-            }
-            else
-            {
-                if (_rawFileHandles != null && _rawFileHandles.TryGetValue(location, out var rawFileHandle))
-                {
-                    rawFileHandle.Release();
-                    _rawFileHandles.Remove(location);
-                }
             }
         }
 
@@ -95,7 +73,7 @@ namespace LccHotfix
             }
         }
 
-        public void LoadAssetAsync<T>(string location, System.Action<AssetHandle> onCompleted, uint priority = 0) where T : Resource
+        public void LoadAssetAsync<T>(string location, System.Action<AssetHandle> onCompleted, uint priority = 0) where T : Godot.Resource
         {
             if (_assetHandles.TryGetValue(location, out var handle))
             {
@@ -111,26 +89,6 @@ namespace LccHotfix
             {
                 handle = Main.AssetService.DefaultPackage.LoadAssetAsync(location, typeof(T), priority);
                 _assetHandles.Add(location, handle);
-                handle.Completed += onCompleted;
-            }
-        }
-
-        public void LoadAssetRawFileAsync(string location, System.Action<RawFileHandle> onCompleted, uint priority = 0)
-        {
-            if (_rawFileHandles.TryGetValue(location, out var handle))
-            {
-                if (handle.IsDone)
-                {
-                    onCompleted.Invoke(handle);
-                    return;
-                }
-
-                handle.Completed += onCompleted;
-            }
-            else
-            {
-                handle = Main.AssetService.RawFilePackage.LoadRawFileAsync(location, priority);
-                _rawFileHandles.Add(location, handle);
                 handle.Completed += onCompleted;
             }
         }
@@ -158,18 +116,6 @@ namespace LccHotfix
 
             handle = Main.AssetService.DefaultPackage.LoadAssetSync(location, typeof(T));
             _assetHandles.Add(location, handle);
-            return handle;
-        }
-
-        public RawFileHandle LoadAssetRawFileSync(string location)
-        {
-            if (_rawFileHandles.TryGetValue(location, out var handle))
-            {
-                return handle;
-            }
-
-            handle = Main.AssetService.RawFilePackage.LoadRawFileSync(location);
-            _rawFileHandles.Add(location, handle);
             return handle;
         }
     }

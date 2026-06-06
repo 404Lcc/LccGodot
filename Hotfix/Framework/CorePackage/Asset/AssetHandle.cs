@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 using Godot;
 
 namespace LccHotfix
@@ -24,7 +23,7 @@ namespace LccHotfix
 
                 _completed += value;
             }
-            remove => _completed -= value;
+            remove { _completed -= value; }
         }
 
         public AssetHandle(string location)
@@ -53,59 +52,12 @@ namespace LccHotfix
         }
     }
 
-    public class RawFileHandle
-    {
-        private Action<RawFileHandle> _completed;
-
-        public string Location { get; }
-        public byte[] Data { get; private set; }
-        public string Text { get; private set; }
-        public bool IsDone { get; private set; }
-
-        public event Action<RawFileHandle> Completed
-        {
-            add
-            {
-                if (IsDone)
-                {
-                    value?.Invoke(this);
-                    return;
-                }
-
-                _completed += value;
-            }
-            remove => _completed -= value;
-        }
-
-        public RawFileHandle(string location)
-        {
-            Location = location;
-        }
-
-        public void SetResult(byte[] data)
-        {
-            Data = data;
-            Text = data != null ? System.Text.Encoding.UTF8.GetString(data) : null;
-            IsDone = true;
-            _completed?.Invoke(this);
-            _completed = null;
-        }
-
-        public void Release()
-        {
-            Data = null;
-            Text = null;
-            _completed = null;
-            IsDone = true;
-        }
-    }
-
     public class ResourcePackage
     {
         public AssetHandle LoadAssetAsync(string location, uint priority = 0)
         {
             var handle = new AssetHandle(location);
-            _ = LoadAssetAsyncInternal(location, handle);
+            LoadAssetAsyncInternal(location, handle);
             return handle;
         }
 
@@ -126,21 +78,7 @@ namespace LccHotfix
             return LoadAssetSync(location);
         }
 
-        public RawFileHandle LoadRawFileAsync(string location, uint priority = 0)
-        {
-            var handle = new RawFileHandle(location);
-            _ = LoadRawFileAsyncInternal(location, handle);
-            return handle;
-        }
-
-        public RawFileHandle LoadRawFileSync(string location)
-        {
-            var handle = new RawFileHandle(location);
-            handle.SetResult(FileAccess.GetFileAsBytes(location));
-            return handle;
-        }
-
-        private static async Task LoadAssetAsyncInternal(string location, AssetHandle handle)
+        private static async void LoadAssetAsyncInternal(string location, AssetHandle handle)
         {
             if (!ResourceLoader.Exists(location))
             {
@@ -155,20 +93,18 @@ namespace LccHotfix
                 return;
             }
 
-            while (ResourceLoader.LoadThreadedGetStatus(location) == ResourceLoader.ThreadLoadStatus.InProgress)
+            if (Engine.GetMainLoop() is not SceneTree tree)
             {
-                await Task.Delay(1);
+                handle.SetResult(null);
+                return;
             }
 
-            handle.SetResult(ResourceLoader.LoadThreadedGetStatus(location) == ResourceLoader.ThreadLoadStatus.Loaded
-                ? ResourceLoader.LoadThreadedGet(location)
-                : null);
-        }
+            while (ResourceLoader.LoadThreadedGetStatus(location) == ResourceLoader.ThreadLoadStatus.InProgress)
+            {
+                await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+            }
 
-        private static async Task LoadRawFileAsyncInternal(string location, RawFileHandle handle)
-        {
-            await Task.Yield();
-            handle.SetResult(FileAccess.GetFileAsBytes(location));
+            handle.SetResult(ResourceLoader.LoadThreadedGetStatus(location) == ResourceLoader.ThreadLoadStatus.Loaded ? ResourceLoader.LoadThreadedGet(location) : null);
         }
     }
 }
