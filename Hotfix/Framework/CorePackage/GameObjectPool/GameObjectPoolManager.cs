@@ -128,6 +128,11 @@ namespace LccHotfix
             _completeList = new List<GameObjectHandle>();
             _tempList = new List<GameObjectHandle>();
             _root = new Node { Name = "GameObjectPoolRoot" };
+            if (Engine.GetMainLoop() is SceneTree tree)
+            {
+                tree.Root.AddChild(_root);
+            }
+
             _assetLoader = new AssetLoader();
 
             //预加载
