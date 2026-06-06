@@ -1,8 +1,13 @@
 using Godot;
 using LccModel;
 
-public partial class Launcher : Node
+public partial class Launcher : SingletonNode<Launcher>
 {
+	public override void _Ready()
+	{
+		StartLaunch();
+	}
+
 	public void StartLaunch()
 	{
 		GD.Print("[Launch] Start");

@@ -1,7 +1,11 @@
 using System;
+using Godot;
 
 public partial class Launcher
 {
+    private float _elapseSeconds;
+    private float _realElapseSeconds;
+
     public event Action OnFixedUpdate;
     public event Action OnUpdate;
     public event Action OnLateUpdate;
@@ -40,7 +44,7 @@ public partial class Launcher
         }
     }
 
-    private void OnApplicationQuit()
+    public override void _ExitTree()
     {
         ExcuteClose();
     }
@@ -51,5 +55,20 @@ public partial class Launcher
         {
             OnClose();
         }
+    }
+
+
+    public override void _PhysicsProcess(double delta)
+    {
+        FixedUpdate();
+    }
+
+    public override void _Process(double delta)
+    {
+        _elapseSeconds = (float)delta;
+        _realElapseSeconds = (float)delta;
+
+        Update();
+        LateUpdate();
     }
 }
