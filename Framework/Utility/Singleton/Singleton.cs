@@ -42,8 +42,6 @@ namespace LccModel
     {
         protected static T _instance = null;
 
-        private static string SingletonName => typeof(T).ToString();
-
         public static T Instance
         {
             get
@@ -71,7 +69,7 @@ namespace LccModel
 
                 _instance = new T
                 {
-                    Name = SingletonName,
+                    Name = typeof(T).ToString(),
                 };
                 singletonRoot.AddChild(_instance);
                 return _instance;
@@ -93,7 +91,7 @@ namespace LccModel
                     return false;
                 }
 
-                return singletonRoot.GetNodeOrNull<Node>(SingletonName) != null;
+                return singletonRoot.GetNodeOrNull<Node>(typeof(T).ToString()) != null;
             }
         }
 
