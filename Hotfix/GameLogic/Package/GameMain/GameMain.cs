@@ -1,4 +1,5 @@
 using System.Reflection;
+using Godot;
 
 namespace LccHotfix
 {
@@ -13,6 +14,15 @@ namespace LccHotfix
             CodeTypesService = Current.AddModule<CodeTypesManager>();
             CodeTypesService.LoadTypes(new Assembly[] { GetType().Assembly });
             AssetService = Current.AddModule<AssetManager>();
+            GameObjectPoolService = Current.AddModule<GameObjectPoolManager>();
+            GameObjectPoolService.SetAsyncLoader((location, assetLoader, onComplete) =>
+            {
+                assetLoader.LoadAssetAsync<PackedScene>(location, (handle) =>
+                {
+                    var prefab = handle.AssetObject as PackedScene;
+                    onComplete(location, prefab);
+                });
+            });
             ValueEventService = Current.AddModule<ValueEventManager>();
             ThreadSyncService = Current.AddModule<ThreadSyncManager>();
         }
