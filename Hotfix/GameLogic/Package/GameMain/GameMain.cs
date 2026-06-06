@@ -6,6 +6,10 @@ namespace LccHotfix
     {
         public override void OnInstall()
         {
+            Launcher.Instance.OnFixedUpdate += OnFixedUpdate;
+            Launcher.Instance.OnUpdate += OnUpdate;
+            Launcher.Instance.OnClose += OnClose;
+
             CodeTypesService = Current.AddModule<CodeTypesManager>();
             CodeTypesService.LoadTypes(new Assembly[] { GetType().Assembly });
             AssetService = Current.AddModule<AssetManager>();
@@ -19,19 +23,14 @@ namespace LccHotfix
 
         private static void OnUpdate()
         {
-        }
-
-        private static void OnLateUpdate()
-        {
-            Main.Current.LateUpdate();
-        }
-
-        private static void OnGizmos()
-        {
+            Main.Current.Update(Launcher.Instance.deltaTime, Launcher.Instance.unscaledDeltaTime);
         }
 
         private static void OnClose()
         {
+            Launcher.Instance.OnFixedUpdate -= OnFixedUpdate;
+            Launcher.Instance.OnUpdate -= OnUpdate;
+            Launcher.Instance.OnClose -= OnClose;
             Current.Shutdown();
         }
     }

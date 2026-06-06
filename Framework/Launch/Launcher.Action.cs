@@ -4,8 +4,8 @@ using Godot;
 public partial class Launcher
 {
     private ulong _lastTicksUsec;
-    private float _elapseSeconds;
-    private float _realElapseSeconds;
+    public float deltaTime;
+    public float unscaledDeltaTime;
 
     public event Action OnFixedUpdate;
     public event Action OnUpdate;
@@ -22,10 +22,8 @@ public partial class Launcher
     public override void _Process(double delta)
     {
         var nowTicksUsec = Time.GetTicksUsec();
-        var deltaTime = (float)delta;
-
-        _elapseSeconds = deltaTime;
-        _realElapseSeconds = _lastTicksUsec > 0 ? (nowTicksUsec - _lastTicksUsec) / 1000000f : deltaTime;
+        deltaTime = (float)delta;
+        unscaledDeltaTime = _lastTicksUsec > 0 ? (nowTicksUsec - _lastTicksUsec) / 1000000f : deltaTime;
         _lastTicksUsec = nowTicksUsec;
 
         if (OnUpdate != null)
