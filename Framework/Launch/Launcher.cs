@@ -1,66 +1,68 @@
 using System;
 using Godot;
-using LccModel;
 
-public partial class Launcher : Node
+namespace LccModel
 {
-    private LauncherOperation? _launcherOperation;
-
-    public event Action<double>? OnProcessUpdate;
-    public event Action<double>? OnPhysicsProcessUpdate;
-    public event Action? OnClose;
-
-    public override void _Ready()
+    public partial class Launcher : Node
     {
-        StartLaunch();
-    }
+        private LauncherOperation? _launcherOperation;
 
-    public override void _Process(double delta)
-    {
-        OnProcessUpdate?.Invoke(delta);
-        _launcherOperation?.Update(delta);
+        public event Action<double>? OnProcessUpdate;
+        public event Action<double>? OnPhysicsProcessUpdate;
+        public event Action? OnClose;
 
-        if (_launcherOperation == null || !_launcherOperation.IsDone)
+        public override void _Ready()
         {
-            return;
+            StartLaunch();
         }
 
-        if (_launcherOperation.Status == LauncherOperationStatus.Succeed)
+        public override void _Process(double delta)
         {
-            GD.Print("[Launch] launcher succeed");
-        }
-        else
-        {
-            GD.PrintErr($"[Launch] launcher error : {_launcherOperation.Error}");
-        }
+            OnProcessUpdate?.Invoke(delta);
+            _launcherOperation?.Update(delta);
 
-        _launcherOperation = null;
-    }
+            if (_launcherOperation == null || !_launcherOperation.IsDone)
+            {
+                return;
+            }
 
-    public override void _PhysicsProcess(double delta)
-    {
-        OnPhysicsProcessUpdate?.Invoke(delta);
-    }
+            if (_launcherOperation.Status == LauncherOperationStatus.Succeed)
+            {
+                GD.Print("[Launch] launcher succeed");
+            }
+            else
+            {
+                GD.PrintErr($"[Launch] launcher error : {_launcherOperation.Error}");
+            }
 
-    public override void _ExitTree()
-    {
-        ExecuteClose();
-    }
-
-    public void StartLaunch()
-    {
-        if (_launcherOperation != null)
-        {
-            return;
+            _launcherOperation = null;
         }
 
-        GD.Print("[Launch] Start");
-        _launcherOperation = new LauncherOperation();
-        _launcherOperation.Start();
-    }
+        public override void _PhysicsProcess(double delta)
+        {
+            OnPhysicsProcessUpdate?.Invoke(delta);
+        }
 
-    public void ExecuteClose()
-    {
-        OnClose?.Invoke();
+        public override void _ExitTree()
+        {
+            ExecuteClose();
+        }
+
+        public void StartLaunch()
+        {
+            if (_launcherOperation != null)
+            {
+                return;
+            }
+
+            GD.Print("[Launch] Start");
+            _launcherOperation = new LauncherOperation();
+            _launcherOperation.Start();
+        }
+
+        public void ExecuteClose()
+        {
+            OnClose?.Invoke();
+        }
     }
 }

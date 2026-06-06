@@ -1,5 +1,4 @@
 using System;
-using LccModel.LaunchUI;
 
 namespace LccModel
 {

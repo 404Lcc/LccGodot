@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace LccModel.LaunchUI
+namespace LccModel
 {
     public static class UIPanelLaunch
     {
