@@ -1,11 +1,10 @@
 namespace LccHotfix
 {
-    public abstract partial class Main
+    internal partial class Main
     {
-        public static ICodeTypesService? CodeTypesService { get; protected set; }
-        public static IAssetService? AssetService { get; protected set; }
-        public static IValueEventService? ValueEventService { get; protected set; }
-        public static IThreadSyncService? ThreadSyncService { get; protected set; }
-        public static IUIService? UIService { get; protected set; }
+        public static ICodeTypesService CodeTypesService { get; set; }
+        public static IAssetService AssetService { get; set; }
+        public static IValueEventService ValueEventService { get; set; }
+        public static IThreadSyncService ThreadSyncService { get; set; }
     }
 }

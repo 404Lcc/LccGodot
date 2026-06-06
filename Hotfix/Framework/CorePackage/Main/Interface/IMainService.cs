@@ -3,6 +3,10 @@ namespace LccHotfix
     public interface IMainService : IService
     {
         void OnInstall();
-        T AddModule<T>() where T : Module, IService, new();
+
+        /// <summary>
+        /// 增加游戏框架模块。
+        /// </summary>
+        T AddModule<T>() where T : Module, IService;
     }
 }

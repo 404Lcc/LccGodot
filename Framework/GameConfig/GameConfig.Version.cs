@@ -1,6 +1,5 @@
 using LitJson;
 using System;
-using Godot;
 
 namespace LccModel
 {
@@ -109,7 +108,6 @@ namespace LccModel
                 }
                 catch (Exception ex)
                 {
-                    GD.PrintErr("读取版本配置失败：" + ex.ToString());
                 }
             }
         }
