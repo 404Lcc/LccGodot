@@ -47,7 +47,7 @@ namespace LccHotfix
             if (_cachedStack.Count > 0)
             {
                 obj = _cachedStack.Pop();
-                obj.GameObject.GetParent().RemoveChild(obj.GameObject);
+                SetParentToSceneRoot(obj.GameObject);
                 obj.SetActive(true);
 
                 obj.OnReset();
@@ -90,7 +90,7 @@ namespace LccHotfix
             _root.AddChild(go);
             var obj = new GameObjectObject(go);
             obj.GameObject.Name = Name;
-            obj.GameObject.GetParent().RemoveChild(obj.GameObject);
+            SetParentToSceneRoot(obj.GameObject);
             obj.SetActive(true);
 
             obj.OnReset();
@@ -104,6 +104,21 @@ namespace LccHotfix
             {
                 _cachedStack.Pop().GameObject.QueueFree();
             }
+        }
+
+        private void SetParentToSceneRoot(Node node)
+        {
+            if (Engine.GetMainLoop() is not SceneTree tree)
+            {
+                return;
+            }
+
+            if (node.GetParent() == tree.Root)
+            {
+                return;
+            }
+
+            node.Reparent(tree.Root);
         }
     }
 }
