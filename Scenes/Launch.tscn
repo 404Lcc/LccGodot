@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://baepl2mqwdevr"]
+
+[ext_resource type="Script" uid="uid://2rgknnhksr1s" path="res://Framework/Launch/Launcher.cs" id="1_qnseh"]
+
+[node name="Launch" type="Node" unique_id=416758072]
+process_mode = 3
+physics_interpolation_mode = 1
+auto_translate_mode = 2
+script = ExtResource("1_qnseh")

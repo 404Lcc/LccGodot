@@ -4,11 +4,11 @@ using LccModel;
 
 public partial class Launcher : Node
 {
-	private LauncherOperation? _launcherOperation;
+	private bool hasStarted;
 
-	public event Action<double>? OnProcessUpdate;
-	public event Action<double>? OnPhysicsProcessUpdate;
-	public event Action? OnClose;
+	public event Action<double> OnProcessUpdate;
+	public event Action<double> OnPhysicsProcessUpdate;
+	public event Action OnClose;
 
 	public override void _Ready()
 	{
@@ -18,23 +18,6 @@ public partial class Launcher : Node
 	public override void _Process(double delta)
 	{
 		OnProcessUpdate?.Invoke(delta);
-		_launcherOperation?.Update(delta);
-
-		if (_launcherOperation == null || !_launcherOperation.IsDone)
-		{
-			return;
-		}
-
-		if (_launcherOperation.Status == LauncherOperationStatus.Succeed)
-		{
-			GD.Print("[Launch] launcher succeed");
-		}
-		else
-		{
-			GD.PrintErr($"[Launch] launcher error : {_launcherOperation.Error}");
-		}
-
-		_launcherOperation = null;
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -49,14 +32,26 @@ public partial class Launcher : Node
 
 	public void StartLaunch()
 	{
-		if (_launcherOperation != null)
+		if (hasStarted)
 		{
 			return;
 		}
 
+		hasStarted = true;
+
 		GD.Print("[Launch] Start");
-		_launcherOperation = new LauncherOperation();
-		_launcherOperation.Start();
+
+		var operation = new LauncherOperation();
+		operation.Start();
+
+		if (operation.Status == LauncherOperationStatus.Succeed)
+		{
+			GD.Print("[Launch] launcher succeed");
+		}
+		else
+		{
+			GD.PrintErr($"[Launch] launcher error : {operation.Error}");
+		}
 	}
 
 	public void ExecuteClose()
