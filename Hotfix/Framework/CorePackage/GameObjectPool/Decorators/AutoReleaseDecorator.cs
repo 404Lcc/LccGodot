@@ -1,4 +1,4 @@
-using UnityEngine;
+using Godot;
 
 namespace LccHotfix
 {
@@ -7,7 +7,7 @@ namespace LccHotfix
     public class AutoReleaseDecorator : GameObjectPoolDecorator
     {
         public const float AutoReleaseTime = 15.0f;
-        private float _lastAutoReleaseTime = Time.unscaledTime;
+        private float _lastAutoReleaseTime = Time.GetTicksUsec() / 1000000f;
 
         public AutoReleaseDecorator(IGameObjectPool pool) : base(pool)
         {
@@ -15,14 +15,14 @@ namespace LccHotfix
 
         public override GameObjectObject Get()
         {
-            _lastAutoReleaseTime = Time.unscaledTime;
+            _lastAutoReleaseTime = Time.GetTicksUsec() / 1000000f;
             return base.Get();
         }
 
         public override void Update()
         {
             base.Update();
-            if (Pool.Count > PoolSetting.autoRelease && Time.unscaledTime > _lastAutoReleaseTime + AutoReleaseTime)
+            if (Pool.Count > PoolSetting.autoRelease && Time.GetTicksUsec() / 1000000f > _lastAutoReleaseTime + AutoReleaseTime)
             {
                 ForceRelease();
             }

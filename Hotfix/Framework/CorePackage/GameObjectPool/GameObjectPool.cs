@@ -1,11 +1,12 @@
 using System.Collections.Generic;
-using UnityEngine;
+using System.Diagnostics;
+using Godot;
 
 namespace LccHotfix
 {
     public interface IGameObjectPool
     {
-        GameObject Root { get; }
+        Node Root { get; }
         GameObjectPoolSetting PoolSetting { get; }
         string Name { get; }
         int Count { get; }
@@ -20,19 +21,19 @@ namespace LccHotfix
 
     public class GameObjectPool : IGameObjectPool
     {
-        private GameObject _original;
-        private GameObject _root;
+        private PackedScene _original;
+        private Node _root;
         private GameObjectPoolSetting _poolSetting;
         private Stack<GameObjectObject> _cachedStack;
 
-        public GameObject Root => _root;
+        public Node Root => _root;
         public GameObjectPoolSetting PoolSetting => _poolSetting;
         public string Name { get; private set; }
         public int Count => _cachedStack.Count;
 
-        public GameObjectPool(GameObject original, GameObject root, GameObjectPoolSetting poolSetting, string location)
+        public GameObjectPool(PackedScene original, Node root, GameObjectPoolSetting poolSetting, string location)
         {
-            UnityEngine.Debug.Assert(original != null);
+            Debug.Assert(original != null);
             _original = original;
             _root = root;
             _poolSetting = poolSetting;
@@ -46,8 +47,8 @@ namespace LccHotfix
             if (_cachedStack.Count > 0)
             {
                 obj = _cachedStack.Pop();
-                obj.GameObject.transform.SetParent(null);
-                obj.GameObject.SetActive(true);
+                obj.GameObject.GetParent().RemoveChild(obj.GameObject);
+                obj.SetActive(true);
 
                 obj.OnReset();
                 obj.Pool = this;
@@ -64,7 +65,7 @@ namespace LccHotfix
         {
             if (obj != null)
             {
-                obj.GameObject.SetActive(false);
+                obj.SetActive(false);
                 _cachedStack.Push(obj);
             }
         }
@@ -73,10 +74,10 @@ namespace LccHotfix
         {
             while (_cachedStack.Count > 0)
             {
-                GameObject.Destroy(_cachedStack.Pop().GameObject);
+                _cachedStack.Pop().GameObject.QueueFree();
             }
 
-            GameObject.Destroy(_root);
+            _root.QueueFree();
         }
 
         public void Update()
@@ -85,11 +86,12 @@ namespace LccHotfix
 
         public GameObjectObject ForceSpawm()
         {
-            var go = Object.Instantiate(_original.gameObject, _root.transform);
+            var go = _original.Instantiate();
+            _root.AddChild(go);
             var obj = new GameObjectObject(go);
-            obj.GameObject.name = Name;
-            obj.GameObject.transform.SetParent(null);
-            obj.GameObject.SetActive(true);
+            obj.GameObject.Name = Name;
+            obj.GameObject.GetParent().RemoveChild(obj.GameObject);
+            obj.SetActive(true);
 
             obj.OnReset();
             obj.Pool = this;
@@ -100,7 +102,7 @@ namespace LccHotfix
         {
             if (_cachedStack.Count > 0)
             {
-                GameObject.Destroy(_cachedStack.Pop().GameObject);
+                _cachedStack.Pop().GameObject.QueueFree();
             }
         }
     }

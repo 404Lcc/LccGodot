@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-using Object = UnityEngine.Object;
+using Godot;
 
 namespace LccHotfix
 {
@@ -29,7 +28,7 @@ namespace LccHotfix
         public string Location { get; private set; }
         public bool IsDone { get; private set; }
 
-        public GameObject GameObject
+        public Node GameObject
         {
             get
             {
@@ -42,7 +41,7 @@ namespace LccHotfix
             }
         }
 
-        public Transform Transform
+        public Node Transform
         {
             get
             {
@@ -107,18 +106,18 @@ namespace LccHotfix
         private GameObjectPoolSetting _poolSetting;
 
         // private Func<string, GameObject, GameObject> _loader;
-        private Action<string, AssetLoader, Action<string, Object>> _asyncLoader;
+        private Action<string, AssetLoader, Action<string, Resource>> _asyncLoader;
         private Dictionary<string, IGameObjectPool> _poolDict; //对象池列表
         private Dictionary<string, List<GameObjectHandle>> _loadList; //加载列表
         private List<GameObjectHandle> _completeList; //完成列表
         private List<GameObjectHandle> _tempList; //完成缓存列表
         private GameObjectHandle _temp; //当前的完成句柄
 
-        private Transform _root;
+        private Node _root;
         private AssetLoader _assetLoader;
 
         public GameObjectPoolSetting PoolSetting => _poolSetting;
-        public Transform Root => _root;
+        public Node Root => _root;
         public int PoolCount => _poolDict.Count;
 
         public GameObjectPoolManager()
@@ -128,8 +127,7 @@ namespace LccHotfix
             _loadList = new Dictionary<string, List<GameObjectHandle>>();
             _completeList = new List<GameObjectHandle>();
             _tempList = new List<GameObjectHandle>();
-            _root = new GameObject("GameObjectPoolRoot").transform;
-            GameObject.DontDestroyOnLoad(_root);
+            _root = new Node { Name = "GameObjectPoolRoot" };
             _assetLoader = new AssetLoader();
 
             //预加载
@@ -174,7 +172,7 @@ namespace LccHotfix
             _poolDict.Clear();
             _loadList.Clear();
 
-            GameObject.Destroy(_root.gameObject);
+            _root.QueueFree();
             _root = null;
         }
 
@@ -183,7 +181,7 @@ namespace LccHotfix
         //     _loader = loader;
         // }
 
-        public void SetAsyncLoader(Action<string, AssetLoader, Action<string, Object>> asyncLoader)
+        public void SetAsyncLoader(Action<string, AssetLoader, Action<string, Resource>> asyncLoader)
         {
             _asyncLoader = asyncLoader;
         }
@@ -234,7 +232,7 @@ namespace LccHotfix
         {
             if (_asyncLoader == null)
             {
-                UnityEngine.Debug.LogError("对象池没有设置异步加载器");
+                Log.Error("对象池没有设置异步加载器");
                 return null;
             }
 
@@ -256,7 +254,7 @@ namespace LccHotfix
                 list.Add(handle);
                 _loadList.Add(location, list);
 
-                _asyncLoader(location, _assetLoader, (assetName, obj) => { CreateObjectPool(assetName, obj as GameObject); });
+                _asyncLoader(location, _assetLoader, (assetName, obj) => { CreateObjectPool(assetName, obj as PackedScene); });
             }
             else
             {
@@ -271,7 +269,7 @@ namespace LccHotfix
         /// </summary>
         /// <param name="location"></param>
         /// <param name="original"></param>
-        private void CreateObjectPool(string location, GameObject original)
+        private void CreateObjectPool(string location, PackedScene original)
         {
             //检查是否还在加载列表里
             if (!_loadList.ContainsKey(location))
@@ -283,13 +281,13 @@ namespace LccHotfix
 
             if (original == null)
             {
-                UnityEngine.Debug.LogError($"加载资源失败 {location}");
+                Log.Error($"加载资源失败 {location}");
                 CompleteAllLoad(location, null);
                 return;
             }
 
-            var root = new GameObject(location + "Pool");
-            root.transform.SetParent(Root);
+            var root = new Node { Name = location + "Pool" };
+            Root.AddChild(root);
 
             //创建对象池
             var pool = CreateDecoratedPool(original, root, location);
@@ -367,7 +365,7 @@ namespace LccHotfix
         /// <param name="root"></param>
         /// <param name="location"></param>
         /// <returns></returns>
-        private IGameObjectPool CreateDecoratedPool(GameObject original, GameObject root, string location)
+        private IGameObjectPool CreateDecoratedPool(PackedScene original, Node root, string location)
         {
             IGameObjectPool pool = new GameObjectPool(original, root, PoolSetting, location);
             IGameObjectPool decorator = new SetParentDecorator(pool);

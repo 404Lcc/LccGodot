@@ -1,4 +1,5 @@
-using UnityEngine;
+using System.Diagnostics;
+using Godot;
 
 namespace LccHotfix
 {
@@ -9,12 +10,12 @@ namespace LccHotfix
 
         public GameObjectPoolSetting PoolSetting => Pool.PoolSetting;
         public string Name => Pool.Name;
-        public GameObject Root => Pool.Root;
+        public Node Root => Pool.Root;
         public int Count => Pool.Count;
 
         public GameObjectPoolDecorator(IGameObjectPool pool)
         {
-            UnityEngine.Debug.Assert(pool != null);
+            Debug.Assert(pool != null);
             _pool = pool;
         }
 
