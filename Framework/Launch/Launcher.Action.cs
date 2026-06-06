@@ -12,7 +12,7 @@ public partial class Launcher
     public event Action OnClose;
     public event Action OnGizmos;
 
-    private void FixedUpdate()
+    public override void _PhysicsProcess(double delta)
     {
         if (OnFixedUpdate != null)
         {
@@ -55,12 +55,6 @@ public partial class Launcher
         {
             OnClose();
         }
-    }
-
-
-    public override void _PhysicsProcess(double delta)
-    {
-        FixedUpdate();
     }
 
     public override void _Process(double delta)
