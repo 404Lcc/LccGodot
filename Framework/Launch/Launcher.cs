@@ -3,25 +3,33 @@ using LccModel;
 
 public partial class Launcher : SingletonNode<Launcher>
 {
-	public override void _Ready()
-	{
-		StartLaunch();
-	}
+    public override async void _Ready()
+    {
+        base._Ready();
 
-	public void StartLaunch()
-	{
-		GD.Print("[Launch] Start");
+        if (Engine.GetMainLoop() is not SceneTree tree)
+        {
+            return;
+        }
 
-		var operation = new LauncherOperation();
-		operation.Start();
+        await tree.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+        StartLaunch();
+    }
 
-		if (operation.Status == LauncherOperationStatus.Succeed)
-		{
-			GD.Print("[Launch] launcher succeed");
-		}
-		else
-		{
-			GD.PrintErr($"[Launch] launcher error : {operation.Error}");
-		}
-	}
+    public void StartLaunch()
+    {
+        GD.Print("[Launch] Start");
+
+        var operation = new LauncherOperation();
+        operation.Start();
+
+        if (operation.Status == LauncherOperationStatus.Succeed)
+        {
+            GD.Print("[Launch] launcher succeed");
+        }
+        else
+        {
+            GD.PrintErr($"[Launch] launcher error : {operation.Error}");
+        }
+    }
 }
