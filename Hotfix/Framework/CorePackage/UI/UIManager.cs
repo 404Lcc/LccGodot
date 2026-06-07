@@ -571,6 +571,7 @@ namespace LccHotfix
                 if (_releaseRoot == null)
                 {
                     _releaseRoot = new Control() { Name = "WaitForRelease" };
+                    _releaseRoot.MouseFilter = Control.MouseFilterEnum.Ignore;
                     _releaseRoot.SetParent(_uiRoot.Canvas);
                     _releaseRoot.Scale = Vector2.One;
                     _releaseRoot.Position = new Vector2(30000, 0);

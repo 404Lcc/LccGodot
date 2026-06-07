@@ -34,6 +34,7 @@ namespace LccHotfix
         public void Create(Control canvasTransform)
         {
             var go = new Control() { Name = "Layer_" + UILayerID };
+            go.MouseFilter = Control.MouseFilterEnum.Ignore;
             AttachToParent(go, canvasTransform);
 
             _layer = go;
