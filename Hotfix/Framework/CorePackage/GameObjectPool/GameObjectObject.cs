@@ -44,25 +44,5 @@ namespace LccHotfix
                 control.Position = new Vector2(30000, 0);
             }
         }
-
-        public void SetActive(bool active)
-        {
-            GameObject.ProcessMode = active ? Node.ProcessModeEnum.Inherit : Node.ProcessModeEnum.Disabled;
-
-            if (GameObject is Node2D node2D)
-            {
-                node2D.Visible = active;
-            }
-
-            if (GameObject is Node3D node3D)
-            {
-                node3D.Visible = active;
-            }
-
-            if (GameObject is Control control)
-            {
-                control.Visible = active;
-            }
-        }
     }
 }

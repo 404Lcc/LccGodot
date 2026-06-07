@@ -48,7 +48,7 @@ namespace LccHotfix
             {
                 obj = _cachedStack.Pop();
                 SetParentToSceneRoot(obj.GameObject);
-                obj.SetActive(true);
+                obj.GameObject.SetActive(true);
 
                 obj.OnReset();
                 obj.Pool = this;
@@ -65,7 +65,7 @@ namespace LccHotfix
         {
             if (obj != null)
             {
-                obj.SetActive(false);
+                obj.GameObject.SetActive(false);
                 _cachedStack.Push(obj);
             }
         }
@@ -91,7 +91,7 @@ namespace LccHotfix
             var obj = new GameObjectObject(go);
             obj.GameObject.Name = Name;
             SetParentToSceneRoot(obj.GameObject);
-            obj.SetActive(true);
+            obj.GameObject.SetActive(true);
 
             obj.OnReset();
             obj.Pool = this;
