@@ -1,0 +1,5 @@
+[gd_scene format=3 uid="uid://bm3h6kjawigi2"]
+
+[node name="Enemy01" type="Node2D" unique_id=674430122]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=889904387]
