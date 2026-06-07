@@ -103,16 +103,11 @@ namespace LccHotfix
 
         private Node CreateRootObject()
         {
-            var root = new Node()
-            {
-                Name = "UIRoot"
-            };
+            var root = new Node() { Name = "UIRoot" };
 
             // 创建UI画布
-            var canvas = new Control()
-            {
-                Name = "Canvas"
-            };
+            var canvas = new Control() { Name = "Canvas" };
+
             _canvas = canvas;
 
             canvas.SetParent(root);

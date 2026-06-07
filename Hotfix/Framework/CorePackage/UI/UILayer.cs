@@ -33,10 +33,7 @@ namespace LccHotfix
 
         public void Create(Control canvasTransform)
         {
-            var go = new Control()
-            {
-                Name = "Layer_" + UILayerID
-            };
+            var go = new Control() { Name = "Layer_" + UILayerID };
             AttachToParent(go, canvasTransform);
 
             _layer = go;

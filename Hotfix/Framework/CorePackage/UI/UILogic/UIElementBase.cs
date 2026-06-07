@@ -100,8 +100,7 @@ namespace LccHotfix
 
         public void ShowView(Node gameObject)
         {
-            LccView view = new LccView();
-            view.Name = "LccView";
+            LccView view = new LccView() { Name = "LccView" };
             gameObject.AddChild(view);
 
             view.className = GetType().Name;
