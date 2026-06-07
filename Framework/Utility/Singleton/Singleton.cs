@@ -51,27 +51,24 @@ namespace LccModel
                     return null;
                 }
 
-                _instance = FindInstance(tree.Root);
-                if (_instance != null)
+                if (_instance == null)
                 {
-                    return _instance;
+                    _instance = FindInstance(tree.Root);
                 }
 
-                var singletonRoot = tree.Root.GetNodeOrNull<Node>("SingletonNode");
-                if (singletonRoot == null)
+                var root = tree.Root.GetNodeOrNull<Node>("SingletonNode");
+                if (root == null)
                 {
-                    singletonRoot = new Node
-                    {
-                        Name = "SingletonNode",
-                    };
-                    tree.Root.AddChild(singletonRoot);
+                    root = new Node { Name = "SingletonNode" };
+                    tree.Root.AddChild(root);
                 }
 
-                _instance = new T
+                if (_instance == null)
                 {
-                    Name = typeof(T).ToString(),
-                };
-                singletonRoot.AddChild(_instance);
+                    _instance = new T { Name = typeof(T).ToString() };
+                    root.AddChild(_instance);
+                }
+
                 return _instance;
             }
         }
@@ -85,13 +82,14 @@ namespace LccModel
                     return false;
                 }
 
-                var singletonRoot = tree.Root.GetNodeOrNull<Node>("SingletonNode");
-                if (singletonRoot == null)
+                var root = tree.Root.GetNodeOrNull<Node>("SingletonNode");
+                if (root == null)
                 {
                     return false;
                 }
 
-                return singletonRoot.GetNodeOrNull<Node>(typeof(T).ToString()) != null;
+                var node = root.GetNodeOrNull<Node>(typeof(T).ToString());
+                return node != null;
             }
         }
 
