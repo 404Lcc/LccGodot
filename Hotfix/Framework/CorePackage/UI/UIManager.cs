@@ -570,8 +570,7 @@ namespace LccHotfix
                 //创建释放节点
                 if (_releaseRoot == null)
                 {
-                    _releaseRoot = new Control();
-                    _releaseRoot.Name = "WaitForRelease";
+                    _releaseRoot = new Control() { Name = "WaitForRelease" };
                     _releaseRoot.SetParent(_uiRoot.Canvas);
                     _releaseRoot.Scale = Vector2.One;
                     _releaseRoot.Position = new Vector2(30000, 0);
