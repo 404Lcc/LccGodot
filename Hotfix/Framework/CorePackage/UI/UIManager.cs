@@ -137,7 +137,7 @@ namespace LccHotfix
             _uiRoot = uiRoot;
             _uiRoot.Initialize();
             
-            LoadAsyncGameObject = (loader, asset, end) => { loader.LoadAssetAsync<PackedScene>(asset, handle => { end?.Invoke(handle.AssetObject as PackedScene); }); };
+            LoadAsyncGameObject = (loader, asset, end) => { loader.LoadAssetAsync<PackedScene>("res://Res/Prefab/Panel/" + asset + ".tscn", handle => { end?.Invoke(handle.AssetObject as PackedScene); }); };
             foreach (Type item in GetType().Assembly.GetTypes())
             {
                 if (typeof(IUILogic).IsAssignableFrom(item))
