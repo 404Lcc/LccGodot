@@ -19,8 +19,6 @@ namespace LccHotfix
         public IUIRoot UIRoot { get; protected set; }
         public Node GameObject { get; protected set; }
         public Control RectTransform { get; protected set; }
-        public Control Canvas { get; protected set; }
-        public Control CanvasGroup { get; protected set; }
 
         public TurnNode ReturnNode { get; protected set; }
 
@@ -168,8 +166,6 @@ namespace LccHotfix
 
         protected override void DoCreate()
         {
-            Canvas = RectTransform;
-            CanvasGroup = RectTransform;
             Logic.OnCreate();
         }
 
@@ -180,7 +176,15 @@ namespace LccHotfix
 
         protected override void DoCovered(bool covered)
         {
-            GameObject.SetActive(!covered);
+            if (covered)
+            {
+                GameObject.SetActive(false);
+            }
+            else
+            {
+                GameObject.SetActive(true);
+            }
+
             Logic.OnCovered(covered);
         }
 
@@ -230,11 +234,8 @@ namespace LccHotfix
         protected override void DoDestroy()
         {
             Logic.OnDestroy();
-            GameObject?.QueueFree();
+            GameObject.QueueFree();
             GameObject = null;
-            RectTransform = null;
-            Canvas = null;
-            CanvasGroup = null;
         }
 
         protected override bool DoEscape(ref EscapeType escape)
@@ -283,21 +284,14 @@ namespace LccHotfix
 
         public void CreateElement(AssetLoader loader, Action<ElementNode> callback)
         {
-            Main.UIService.LoadAsyncGameObject?.Invoke(loader, NodeName, (packedScene) =>
+            Main.UIService.LoadAsyncGameObject?.Invoke(loader, NodeName, (obj) =>
             {
-                GameObject = packedScene?.Instantiate();
-                if (GameObject == null)
-                {
-                    Log.Error($"[UI] 加载界面资源失败 {NodeName}");
-                    callback?.Invoke(this);
-                    return;
-                }
-
+                GameObject = obj.Instantiate();
                 GameObject.Name = NodeName;
-                RectTransform = GameObject as Control;
-                if (RectTransform == null)
+
+                if (GameObject != null)
                 {
-                    Log.Error($"[UI] 界面根节点必须是Control {NodeName}");
+                    RectTransform = GameObject as Control;
                 }
 
                 callback?.Invoke(this);

@@ -4,6 +4,33 @@ namespace LccHotfix
 {
     public static class NodeExtension
     {
+        public static void SetParent(this Node node, Node parent)
+        {
+            if (node == null)
+            {
+                return;
+            }
+
+            if (parent == null)
+            {
+                if (Engine.GetMainLoop() is not SceneTree tree)
+                {
+                    return;
+                }
+                
+                parent = tree.Root;
+            }
+
+            if (node.GetParent() == null)
+            {
+                parent.AddChild(node);
+            }
+            else if (node.GetParent() != parent)
+            {
+                node.Reparent(parent);
+            }
+        }
+
         public static Vector3 GetPosition(this Node node)
         {
             if (node == null)

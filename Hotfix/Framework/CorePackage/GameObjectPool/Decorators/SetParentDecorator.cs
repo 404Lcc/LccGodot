@@ -12,7 +12,7 @@ namespace LccHotfix
             base.Release(obj);
             if (obj != null)
             {
-                obj.GameObject.Reparent(Root);
+                obj.GameObject.SetParent(Root);
             }
         }
     }

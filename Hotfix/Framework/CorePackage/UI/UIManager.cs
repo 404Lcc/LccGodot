@@ -66,7 +66,7 @@ namespace LccHotfix
         private List<UINode> _updateNodes = new List<UINode>();
 
         /// <summary>
-        /// 异步加载UI场景
+        /// 异步加载GameObject
         /// </summary>
         public Action<AssetLoader, string, Action<PackedScene>> LoadAsyncGameObject { get; set; }
         
@@ -205,14 +205,6 @@ namespace LccHotfix
                 {
                     element.CreateElement(_assetLoader, (node) =>
                     {
-                        if (node.GameObject == null || node.RectTransform == null)
-                        {
-                            _uiRoot.Detach(node);
-                            node.Destroy();
-                            _switchingNode = null;
-                            return;
-                        }
-
                         node.Create();
                         SwitchNode(node, args);
                     });
@@ -280,14 +272,6 @@ namespace LccHotfix
                 {
                     element.CreateElement(_assetLoader, node =>
                     {
-                        if (node.GameObject == null || node.RectTransform == null)
-                        {
-                            _uiRoot.Detach(node);
-                            node.Destroy();
-                            _switchingNode = null;
-                            return;
-                        }
-
                         node.Create();
                         SwitchNode(node, args);
                     });
@@ -586,17 +570,29 @@ namespace LccHotfix
                 //创建释放节点
                 if (_releaseRoot == null)
                 {
-                    _releaseRoot = new Control { Name = "WaitForRelease" };
-                    _uiRoot.Canvas.AddChild(_releaseRoot);
-                    UILayer.AttachToParent(_releaseRoot, _uiRoot.Canvas);
+                    _releaseRoot = new Control();
+                    _releaseRoot.Name = "WaitForRelease";
+                    _releaseRoot.SetParent(_uiRoot.Canvas);
+                    _releaseRoot.Scale = Vector2.One;
                     _releaseRoot.Position = new Vector2(30000, 0);
+                    //归一
+                    _releaseRoot.AnchorLeft = 0;
+                    _releaseRoot.AnchorTop = 0;
+
+                    _releaseRoot.AnchorRight = 1;
+                    _releaseRoot.AnchorBottom = 1;
+
+                    _releaseRoot.OffsetLeft = 0;
+                    _releaseRoot.OffsetTop = 0;
+                    _releaseRoot.OffsetRight = 0;
+                    _releaseRoot.OffsetBottom = 0;
                 }
 
                 if (node is ElementNode element)
                 {
                     if (element.RectTransform != null)
                     {
-                        element.RectTransform.Reparent(_releaseRoot);
+                        element.RectTransform.SetParent(_releaseRoot);
                     }
                 }
 

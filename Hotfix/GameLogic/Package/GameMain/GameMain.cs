@@ -23,10 +23,15 @@ namespace LccHotfix
                     onComplete(location, prefab);
                 });
             });
-            UIService = Current.AddModule<UIManager>();
-            UIService.Init(new UIRoot());
             ValueEventService = Current.AddModule<ValueEventManager>();
+            UIService = Current.AddModule<UIManager>();
             ThreadSyncService = Current.AddModule<ThreadSyncManager>();
+
+            AssetService.LoadAssetAsync<PackedScene>("res://Res/UI/UIRoot.tscn", uiRootAsset =>
+            {
+                var uiRoot = new UIRoot((uiRootAsset.AssetObject as PackedScene).Instantiate());
+                UIService.Init(uiRoot);
+            });
         }
 
         private static void OnFixedUpdate()

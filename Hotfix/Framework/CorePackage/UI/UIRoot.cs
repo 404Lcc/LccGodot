@@ -3,43 +3,34 @@ using Godot;
 
 namespace LccHotfix
 {
-    public class UIConstant
-    {
-        public const int LayerMaskUI = 5;
-    }
-
     public class UIRoot : IUIRoot
     {
-        private readonly Dictionary<UILayerID, UILayer> _uiLayers = new Dictionary<UILayerID, UILayer>();
-        private readonly Dictionary<string, ElementNode> _elementNodes = new Dictionary<string, ElementNode>();
+        private Dictionary<UILayerID, UILayer> _uiLayers = new Dictionary<UILayerID, UILayer>();
+        private Dictionary<string, ElementNode> _elementNodes = new Dictionary<string, ElementNode>();
 
-        private Node _root;
-        private Control _canvas;
-        private Camera2D _uiCamera;
-
-        public UIRoot(Node rootObject = null)
+        public UIRoot(Node rootObject)
         {
             _root = rootObject;
         }
 
-        public Camera2D RenderCamera => _uiCamera ??= Transform.GetNodeOrNull<Camera2D>("UICamera");
-        public Control Canvas => _canvas ??= Transform.GetNodeOrNull<Control>("Canvas");
-        public Node Transform => _root;
+        private Node _root;
+        private Node _transform;
+        private Control _canvas;
+
+        public Control Canvas => _canvas ??= Transform.GetNode<Control>("Canvas");
+        public Node Transform => _transform ??= _root;
 
         public void Initialize()
         {
             _root ??= CreateRootObject();
             _root.Name = "UIRoot";
+            _root.SetParent(null);
 
-            if (_root.GetParent() == null && Engine.GetMainLoop() is SceneTree tree)
-            {
-                tree.Root.AddChild(_root);
-            }
-
+            var canvasTransform = Canvas;
             for (UILayerID layerId = UILayerID.HUD; layerId <= UILayerID.Debug; layerId++)
             {
                 var layer = new UILayer(this, layerId);
-                layer.Create(Canvas);
+                layer.Create(canvasTransform);
                 _uiLayers[layerId] = layer;
             }
         }
@@ -54,10 +45,11 @@ namespace LccHotfix
             _uiLayers.Clear();
             _elementNodes.Clear();
 
+            _transform = null;
             _canvas = null;
-            _uiCamera = null;
 
-            _root?.QueueFree();
+            _root.SetParent(null);
+            _root.QueueFree();
             _root = null;
         }
 
@@ -111,14 +103,19 @@ namespace LccHotfix
 
         private Node CreateRootObject()
         {
-            var root = new Node { Name = "UIRoot" };
+            var root = new Node()
+            {
+                Name = "UIRoot"
+            };
 
-            _uiCamera = new Camera2D { Name = "UICamera" };
-            root.AddChild(_uiCamera);
+            // 创建UI画布
+            var canvas = new Control()
+            {
+                Name = "Canvas"
+            };
+            _canvas = canvas;
 
-            _canvas = new Control { Name = "Canvas" };
-            UILayer.AttachToParent(_canvas, null);
-            root.AddChild(_canvas);
+            canvas.SetParent(root);
 
             return root;
         }
