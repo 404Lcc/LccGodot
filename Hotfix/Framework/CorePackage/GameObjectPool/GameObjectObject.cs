@@ -29,20 +29,7 @@ namespace LccHotfix
 
         public void OnReset()
         {
-            if (GameObject is Node2D node2D)
-            {
-                node2D.Position = new Vector2(30000, 0);
-            }
-
-            if (GameObject is Node3D node3D)
-            {
-                node3D.Position = new Vector3(30000, 0, 0);
-            }
-
-            if (GameObject is Control control)
-            {
-                control.Position = new Vector2(30000, 0);
-            }
+            GameObject.SetPosition(new Vector3(30000, 0, 0));
         }
     }
 }
