@@ -36,6 +36,15 @@ namespace LccHotfix
             {
                 var uiRoot = new UIRoot((uiRootAsset.AssetObject as PackedScene).Instantiate());
                 UIService.Init(uiRoot);
+
+                try
+                {
+                    ProcedureService.ChangeProcedure(ProcedureType.Login.ToInt());
+                }
+                catch (System.Exception e)
+                {
+                    Log.Error(e);
+                }
             });
         }
 
