@@ -38,7 +38,7 @@ namespace LccModel
         }
     }
 
-    public partial class SingletonNode<T> : Node where T : SingletonNode<T>, new()
+    public partial class SingletonNode<T> : Node where T : Node, new()
     {
         protected static T _instance = null;
 
