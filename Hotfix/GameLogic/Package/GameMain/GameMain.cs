@@ -28,7 +28,10 @@ namespace LccHotfix
             ProcedureService.SetProcedureHelper(new DefaultProcedureHelper());
             UIService = Current.AddModule<UIManager>();
             ThreadSyncService = Current.AddModule<ThreadSyncManager>();
+        }
 
+        public override void OnInitialize()
+        {
             AssetService.LoadAssetAsync<PackedScene>("res://Res/UI/UIRoot.tscn", uiRootAsset =>
             {
                 var uiRoot = new UIRoot((uiRootAsset.AssetObject as PackedScene).Instantiate());

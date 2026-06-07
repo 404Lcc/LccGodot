@@ -60,6 +60,8 @@ namespace LccHotfix
 
         public abstract void OnInstall();
 
+        public abstract void OnInitialize();
+
         /// <summary>
         /// 增加游戏框架模块。
         /// </summary>
@@ -109,6 +111,7 @@ namespace LccHotfix
 
             Main.Current = main;
             main.OnInstall();
+            main.OnInitialize();
         }
     }
 }
