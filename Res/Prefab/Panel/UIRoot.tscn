@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://ckj4ejo1k4pdh"]
 
-[node name="Control" type="Control" unique_id=1731094520]
+[node name="UIRoot" type="Control" unique_id=1405383823]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0

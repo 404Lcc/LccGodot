@@ -9,6 +9,6 @@
     <Folder Include="Framework\Launch\" />
     <Folder Include="Framework\Utility\" />
     <Folder Include="Hotfix\Framework\CorePackage\" />
-    <Folder Include="Hotfix\GameLogic\Package\" />
+    <Folder Include="Hotfix\GameLogic\Package\UI\" />
   </ItemGroup>
 </Project>

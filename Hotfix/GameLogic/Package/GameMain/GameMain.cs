@@ -32,7 +32,7 @@ namespace LccHotfix
 
         public override void OnInitialize()
         {
-            AssetService.LoadAssetAsync<PackedScene>("res://Res/UI/UIRoot.tscn", uiRootAsset =>
+            AssetService.LoadAssetAsync<PackedScene>("res://Res/Prefab/Panel/UIRoot.tscn", uiRootAsset =>
             {
                 var uiRoot = new UIRoot((uiRootAsset.AssetObject as PackedScene).Instantiate());
                 UIService.Init(uiRoot);
