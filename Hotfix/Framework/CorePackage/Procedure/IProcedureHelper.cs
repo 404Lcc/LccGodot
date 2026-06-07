@@ -1,0 +1,13 @@
+using System.Collections;
+
+namespace LccHotfix
+{
+    public interface IProcedureHelper
+    {
+        void UpdateLoadingTime(LoadProcedureHandler handler);
+        void ResetSpeed();
+        void UnloadAllPanel(LoadProcedureHandler last, LoadProcedureHandler cur);
+        void OpenChangeProcedurePanel(LoadProcedureHandler handler);
+        void ShowProcedureLoading(LoadingType loadType);
+    }
+}

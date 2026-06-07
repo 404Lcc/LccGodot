@@ -24,6 +24,8 @@ namespace LccHotfix
                 });
             });
             ValueEventService = Current.AddModule<ValueEventManager>();
+            ProcedureService = Current.AddModule<ProcedureManager>();
+            ProcedureService.SetProcedureHelper(new DefaultProcedureHelper());
             UIService = Current.AddModule<UIManager>();
             ThreadSyncService = Current.AddModule<ThreadSyncManager>();
 
