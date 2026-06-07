@@ -1,10 +1,10 @@
 using System;
+using Godot;
 using LccHotfix;
-using UnityEngine;
 
 public interface IUIService : IService
 {
-    Action<AssetLoader, string, Action<GameObject>> LoadAsyncGameObject { get; set; }
+    Action<AssetLoader, string, Action<PackedScene>> LoadAsyncGameObject { get; set; }
     void Init(IUIRoot uiRoot);
     IUILogic GetUILogic(string name, UINode node);
 
@@ -15,7 +15,7 @@ public interface IUIService : IService
     object HideElement(string name);
     void HideTopNode();
     void HideAllDomain();
-    
+
     DomainNode GetDomain(string name);
     T GetDomain<T>(string name) where T : UIDomainBase;
     ElementNode GetElement(string name);

@@ -1,7 +1,5 @@
-﻿using System;
-using UnityEngine;
-using UnityEngine.UI;
-using Object = UnityEngine.Object;
+using System;
+using Godot;
 
 namespace LccHotfix
 {
@@ -19,11 +17,10 @@ namespace LccHotfix
     {
         //UI根
         public IUIRoot UIRoot { get; protected set; }
-        public GameObject GameObject { get; protected set; }
-        public RectTransform RectTransform { get; protected set; }
-        public Canvas Canvas { get; protected set; }
-        public GraphicRaycaster Raycaster { get; protected set; }
-        public CanvasGroup CanvasGroup { get; protected set; }
+        public Node GameObject { get; protected set; }
+        public Control RectTransform { get; protected set; }
+        public Control Canvas { get; protected set; }
+        public Control CanvasGroup { get; protected set; }
 
         public TurnNode ReturnNode { get; protected set; }
 
@@ -171,9 +168,8 @@ namespace LccHotfix
 
         protected override void DoCreate()
         {
-            Canvas = GameObject.AddComponent<Canvas>();
-            Raycaster = GameObject.AddComponent<GraphicRaycaster>();
-            CanvasGroup = GameObject.AddComponent<CanvasGroup>();
+            Canvas = RectTransform;
+            CanvasGroup = RectTransform;
             Logic.OnCreate();
         }
 
@@ -184,15 +180,7 @@ namespace LccHotfix
 
         protected override void DoCovered(bool covered)
         {
-            if (covered)
-            {
-                GameObject.SetActive(false);
-            }
-            else
-            {
-                GameObject.SetActive(true);
-            }
-
+            GameObject.SetActive(!covered);
             Logic.OnCovered(covered);
         }
 
@@ -242,8 +230,11 @@ namespace LccHotfix
         protected override void DoDestroy()
         {
             Logic.OnDestroy();
-            Object.Destroy(GameObject);
+            GameObject?.QueueFree();
             GameObject = null;
+            RectTransform = null;
+            Canvas = null;
+            CanvasGroup = null;
         }
 
         protected override bool DoEscape(ref EscapeType escape)
@@ -292,14 +283,21 @@ namespace LccHotfix
 
         public void CreateElement(AssetLoader loader, Action<ElementNode> callback)
         {
-            Main.UIService.LoadAsyncGameObject?.Invoke(loader, NodeName, (obj) =>
+            Main.UIService.LoadAsyncGameObject?.Invoke(loader, NodeName, (packedScene) =>
             {
-                GameObject = GameObject.Instantiate(obj);
-                GameObject.name = NodeName;
-
-                if (GameObject != null)
+                GameObject = packedScene?.Instantiate();
+                if (GameObject == null)
                 {
-                    RectTransform = GameObject.transform as RectTransform;
+                    Log.Error($"[UI] 加载界面资源失败 {NodeName}");
+                    callback?.Invoke(this);
+                    return;
+                }
+
+                GameObject.Name = NodeName;
+                RectTransform = GameObject as Control;
+                if (RectTransform == null)
+                {
+                    Log.Error($"[UI] 界面根节点必须是Control {NodeName}");
                 }
 
                 callback?.Invoke(this);

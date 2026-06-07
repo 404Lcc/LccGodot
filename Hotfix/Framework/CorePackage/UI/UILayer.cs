@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using Godot;
 using LccHotfix;
-using UnityEngine;
 
 public enum UILayerID
 {
@@ -17,11 +17,9 @@ public class UILayer
     private const int LayerStep = 2048;
     private const int OrderStep = 16;
 
-    private UIRoot _uiRoot;
-    private GameObject _layer;
-    private RectTransform _rectTransform;
-    private CanvasGroup _canvasGroup;
-    
+    private readonly UIRoot _uiRoot;
+    private Control _layer;
+
     public UILayerID UILayerID { get; }
     public List<ElementNode> UIElementList { get; } = new List<ElementNode>();
 
@@ -31,31 +29,21 @@ public class UILayer
         UILayerID = layerID;
     }
 
-    public void Create(Transform canvasTransform)
+    public void Create(Control canvasTransform)
     {
-        var go = new GameObject("Layer_" + UILayerID)
-        {
-            layer = UIConstant.LayerMaskUI
-        };
-        var rect = go.AddComponent<RectTransform>();
-        AttachToParent(rect, canvasTransform);
-
-        _layer = go;
-        _rectTransform = rect;
-        _canvasGroup = go.AddComponent<CanvasGroup>();
+        _layer = new Control { Name = "Layer_" + UILayerID };
+        AttachToParent(_layer, canvasTransform);
     }
 
     public void Destroy()
     {
         foreach (var item in UIElementList)
         {
-            GameObject.Destroy(item.GameObject);
+            item.GameObject?.QueueFree();
         }
 
-        Object.Destroy(_layer);
+        _layer?.QueueFree();
         _layer = null;
-        _rectTransform = null;
-        _canvasGroup = null;
     }
 
     public void AttachElement(ElementNode elementNode)
@@ -68,48 +56,59 @@ public class UILayer
 
     public void AttachElementWidget(ElementNode elementNode)
     {
-        var rect = elementNode.RectTransform;
-        AttachToParent(rect, _rectTransform);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-
-        elementNode.Canvas.overrideSorting = true;
-        var sortingOrder = elementNode.SortingOrder;
-        var childCanvases = elementNode.GameObject.GetComponentsInChildren<Canvas>();
-        for (int i = 0; i < childCanvases.Length; i++)
-        {
-            childCanvases[i].sortingOrder += sortingOrder;
-        }
+        AttachToParent(elementNode.RectTransform, _layer);
+        elementNode.RectTransform.PivotOffset = elementNode.RectTransform.Size * 0.5f;
+        SetCanvasItemZ(elementNode.GameObject, elementNode.SortingOrder);
     }
 
     public void DetachElementWidget(ElementNode elementNode)
     {
-        var sortingOrder = elementNode.SortingOrder;
-        var childCanvases = elementNode.GameObject.GetComponentsInChildren<Canvas>();
-
-        for (int i = 0; i < childCanvases.Length; i++)
-        {
-            childCanvases[i].sortingOrder -= sortingOrder;
-        }
-
-        elementNode.Canvas.overrideSorting = false;
+        SetCanvasItemZ(elementNode.GameObject, 0);
     }
-    
+
     public void DetachElement(ElementNode elementNode)
     {
         elementNode.SetSortingOrder(0);
         UIElementList.Remove(elementNode);
     }
 
-    public void AttachToParent(RectTransform rect, Transform parent)
+    public static void AttachToParent(Control rect, Control parent)
     {
-        rect.SetParent(parent, false);
-        rect.localPosition = Vector3.zero;
-        rect.localRotation = Quaternion.identity;
-        rect.localScale = Vector3.one;
+        if (rect == null)
+        {
+            return;
+        }
 
-        rect.anchoredPosition = Vector2.zero;
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.sizeDelta = Vector2.zero;
+        if (parent != null)
+        {
+            if (rect.GetParent() == null)
+            {
+                parent.AddChild(rect);
+            }
+            else if (rect.GetParent() != parent)
+            {
+                rect.Reparent(parent);
+            }
+        }
+
+        rect.AnchorLeft = 0;
+        rect.AnchorTop = 0;
+        rect.AnchorRight = 1;
+        rect.AnchorBottom = 1;
+        rect.OffsetLeft = 0;
+        rect.OffsetTop = 0;
+        rect.OffsetRight = 0;
+        rect.OffsetBottom = 0;
+        rect.Scale = Vector2.One;
+        rect.Rotation = 0;
+        rect.Position = Vector2.Zero;
+    }
+
+    private static void SetCanvasItemZ(Node node, int zIndex)
+    {
+        if (node is CanvasItem canvasItem)
+        {
+            canvasItem.ZIndex = zIndex;
+        }
     }
 }

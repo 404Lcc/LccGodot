@@ -1,6 +1,5 @@
-﻿using System;
-using UnityEngine;
-using LccModel;
+using System;
+using Godot;
 
 namespace LccHotfix
 {
@@ -8,7 +7,7 @@ namespace LccHotfix
     {
         public UINode Node { get; set; }
 
-        public GameObject GameObject
+        public Node GameObject
         {
             get
             {
@@ -21,7 +20,7 @@ namespace LccHotfix
             }
         }
 
-        public RectTransform RectTransform
+        public Control RectTransform
         {
             get
             {
@@ -99,9 +98,15 @@ namespace LccHotfix
             return Node.Hide();
         }
 
-        public void ShowView(GameObject gameObject)
+        public void ShowView(Node gameObject)
         {
-            LccView view = gameObject.AddComponent<LccView>();
+            var view = gameObject.GetNodeOrNull<LccView>("LccView");
+            if (view == null)
+            {
+                view = new LccView { Name = "LccView" };
+                gameObject.AddChild(view);
+            }
+
             view.className = GetType().Name;
             view.type = this;
         }

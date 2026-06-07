@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Diagnostics;
+using Godot;
 
 namespace LccHotfix
 {
@@ -47,7 +48,7 @@ namespace LccHotfix
         /// <summary>
         /// 释放根节点
         /// </summary>
-        private RectTransform _releaseRoot;
+        private Control _releaseRoot;
         
         /// <summary>
         /// 被关闭界面会自动缓存多少帧然后释放。900帧大概30s
@@ -65,9 +66,9 @@ namespace LccHotfix
         private List<UINode> _updateNodes = new List<UINode>();
 
         /// <summary>
-        /// 异步加载GameObject
+        /// 异步加载UI场景
         /// </summary>
-        public Action<AssetLoader, string, Action<GameObject>> LoadAsyncGameObject { get; set; }
+        public Action<AssetLoader, string, Action<PackedScene>> LoadAsyncGameObject { get; set; }
         
         internal override void Update(float elapseSeconds, float realElapseSeconds)
         {
@@ -98,7 +99,7 @@ namespace LccHotfix
 
         internal override void LateUpdate()
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (Input.IsActionJustPressed("ui_cancel"))
             {
                 HideTopNode();
             }
@@ -119,7 +120,7 @@ namespace LccHotfix
             
             if (_releaseRoot != null)
             {
-                GameObject.DestroyImmediate(_releaseRoot.gameObject);
+                _releaseRoot.QueueFree();
                 _releaseRoot = null;
             }
 
@@ -136,7 +137,7 @@ namespace LccHotfix
             _uiRoot = uiRoot;
             _uiRoot.Initialize();
             
-            LoadAsyncGameObject = (loader, asset, end) => { loader.LoadAssetAsync<GameObject>(asset, handle => { end?.Invoke(handle.AssetObject as GameObject); }); };
+            LoadAsyncGameObject = (loader, asset, end) => { loader.LoadAssetAsync<PackedScene>(asset, handle => { end?.Invoke(handle.AssetObject as PackedScene); }); };
             foreach (Type item in GetType().Assembly.GetTypes())
             {
                 if (typeof(IUILogic).IsAssignableFrom(item))
@@ -204,6 +205,14 @@ namespace LccHotfix
                 {
                     element.CreateElement(_assetLoader, (node) =>
                     {
+                        if (node.GameObject == null || node.RectTransform == null)
+                        {
+                            _uiRoot.Detach(node);
+                            node.Destroy();
+                            _switchingNode = null;
+                            return;
+                        }
+
                         node.Create();
                         SwitchNode(node, args);
                     });
@@ -271,6 +280,14 @@ namespace LccHotfix
                 {
                     element.CreateElement(_assetLoader, node =>
                     {
+                        if (node.GameObject == null || node.RectTransform == null)
+                        {
+                            _uiRoot.Detach(node);
+                            node.Destroy();
+                            _switchingNode = null;
+                            return;
+                        }
+
                         node.Create();
                         SwitchNode(node, args);
                     });
@@ -569,21 +586,17 @@ namespace LccHotfix
                 //创建释放节点
                 if (_releaseRoot == null)
                 {
-                    _releaseRoot = new GameObject("WaitForRelease").AddComponent<RectTransform>();
-                    _releaseRoot.SetParent(_uiRoot.Canvas.transform);
-                    _releaseRoot.localScale = Vector3.one;
-                    _releaseRoot.localPosition = new Vector3(30000, 0, 0);
-                    //归一
-                    _releaseRoot.anchorMin = Vector3.zero;
-                    _releaseRoot.anchorMax = Vector3.one;
-                    _releaseRoot.sizeDelta = Vector3.zero;
+                    _releaseRoot = new Control { Name = "WaitForRelease" };
+                    _uiRoot.Canvas.AddChild(_releaseRoot);
+                    UILayer.AttachToParent(_releaseRoot, _uiRoot.Canvas);
+                    _releaseRoot.Position = new Vector2(30000, 0);
                 }
 
                 if (node is ElementNode element)
                 {
                     if (element.RectTransform != null)
                     {
-                        element.RectTransform.parent = _releaseRoot;
+                        element.RectTransform.Reparent(_releaseRoot);
                     }
                 }
 

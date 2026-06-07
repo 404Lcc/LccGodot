@@ -23,6 +23,8 @@ namespace LccHotfix
                     onComplete(location, prefab);
                 });
             });
+            UIService = Current.AddModule<UIManager>();
+            UIService.Init(new UIRoot());
             ValueEventService = Current.AddModule<ValueEventManager>();
             ThreadSyncService = Current.AddModule<ThreadSyncManager>();
         }
