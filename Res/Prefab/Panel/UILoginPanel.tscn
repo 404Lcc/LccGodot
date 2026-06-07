@@ -41,6 +41,4 @@ offset_right = 120.0
 offset_bottom = -520.0
 grow_horizontal = 2
 grow_vertical = 0
-toggle_mode = true
-button_pressed = true
 text = "Start"
