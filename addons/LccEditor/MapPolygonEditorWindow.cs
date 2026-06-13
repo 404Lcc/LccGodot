@@ -11,12 +11,19 @@ namespace LccEditor
     [MenuTree("地图/多边形区域", 10)]
     public sealed class MapPolygonEditorWindow : LccEditorWindowBase
     {
+        private const string EditorMetaKey = "map_polygon_editor";
+        private const string TypeMetaKey = "map_polygon_type";
+
         private OptionButton? _typeOption;
         private Label? _pathLabel;
+        private Label? _rootLabel;
+        private Label? _statusLabel;
         private ItemList? _polygonList;
-        private MapPolygonCanvas? _canvas;
         private FileDialog? _fileDialog;
+        private Node2D? _editRoot;
         private string _texturePath = string.Empty;
+        private Vector2 _textureSize;
+        private PolygonAreaType _currentType = PolygonAreaType.Collision;
 
         public override Control BuildContent()
         {
@@ -36,10 +43,23 @@ namespace LccEditor
 
         private Control BuildToolbar()
         {
+            var root = new VBoxContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            };
+
             var toolbar = new HBoxContainer
             {
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             };
+            root.AddChild(toolbar);
+
+            var bindRootButton = new Button
+            {
+                Text = "绑定选中节点",
+            };
+            bindRootButton.Pressed += BindSelectedRoot;
+            toolbar.AddChild(bindRootButton);
 
             var openButton = new Button
             {
@@ -57,12 +77,12 @@ namespace LccEditor
             _typeOption.ItemSelected += OnTypeSelected;
             toolbar.AddChild(_typeOption);
 
-            var finishButton = new Button
+            var createButton = new Button
             {
-                Text = "完成多边形",
+                Text = "新建区域",
             };
-            finishButton.Pressed += FinishPolygon;
-            toolbar.AddChild(finishButton);
+            createButton.Pressed += CreatePolygonNode;
+            toolbar.AddChild(createButton);
 
             var deleteButton = new Button
             {
@@ -71,16 +91,23 @@ namespace LccEditor
             deleteButton.Pressed += DeleteSelectedPolygon;
             toolbar.AddChild(deleteButton);
 
+            var refreshButton = new Button
+            {
+                Text = "刷新",
+            };
+            refreshButton.Pressed += RefreshPolygonList;
+            toolbar.AddChild(refreshButton);
+
             var saveButton = new Button
             {
-                Text = "保存",
+                Text = "保存JSON",
             };
             saveButton.Pressed += Save;
             toolbar.AddChild(saveButton);
 
             var loadButton = new Button
             {
-                Text = "加载",
+                Text = "加载JSON",
             };
             loadButton.Pressed += Load;
             toolbar.AddChild(loadButton);
@@ -93,35 +120,35 @@ namespace LccEditor
             };
             toolbar.AddChild(_pathLabel);
 
-            return toolbar;
+            _rootLabel = new Label
+            {
+                Text = "编辑根节点：未绑定",
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                ClipText = true,
+            };
+            root.AddChild(_rootLabel);
+
+            _statusLabel = new Label
+            {
+                Text = "绑定 Node2D 后，新建或加载 Polygon2D，用 Godot 原生多边形编辑点位。",
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            };
+            root.AddChild(_statusLabel);
+
+            return root;
         }
 
         private Control BuildBody()
         {
-            var split = new HSplitContainer
-            {
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            };
-
-            _canvas = new MapPolygonCanvas
-            {
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            };
-            _canvas.PolygonsChanged += RefreshPolygonList;
-            _canvas.SelectionChanged += RefreshPolygonList;
-            split.AddChild(_canvas);
-
             _polygonList = new ItemList
             {
-                CustomMinimumSize = new Vector2(180, 0),
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+                AllowReselect = true,
             };
             _polygonList.ItemSelected += OnPolygonSelected;
-            split.AddChild(_polygonList);
-
-            return split;
+            return _polygonList;
         }
 
         private FileDialog BuildFileDialog()
@@ -152,57 +179,125 @@ namespace LccEditor
             }
 
             _texturePath = path;
+            _textureSize = texture.GetSize();
+
             if (_pathLabel != null)
             {
                 _pathLabel.Text = path;
             }
 
-            _canvas?.SetTexture(path, texture);
-            Load();
+            SetStatus($"已选择图片: {path}");
         }
 
         private void OnTypeSelected(long index)
         {
-            if (_canvas != null)
-            {
-                _canvas.CurrentType = index == 1 ? PolygonAreaType.Occlusion : PolygonAreaType.Collision;
-            }
+            _currentType = index == 1 ? PolygonAreaType.Occlusion : PolygonAreaType.Collision;
         }
 
-        private void FinishPolygon()
+        private void BindSelectedRoot()
         {
-            _canvas?.FinishCurrentPolygon();
+            Godot.Collections.Array<Node> selectedNodes = EditorPlugin.GetEditorInterface().GetSelection().GetSelectedNodes();
+            if (selectedNodes.Count > 0)
+            {
+                if (selectedNodes[0] is Polygon2D polygonNode && polygonNode.GetParent() is Node2D parent)
+                {
+                    SetEditRoot(parent);
+                    SelectEditorNode(polygonNode);
+                    return;
+                }
+
+                if (selectedNodes[0] is Node2D node2D)
+                {
+                    SetEditRoot(node2D);
+                    return;
+                }
+            }
+
+            Node editedSceneRoot = EditorPlugin.GetEditorInterface().GetEditedSceneRoot();
+            if (editedSceneRoot is Node2D sceneNode2D)
+            {
+                SetEditRoot(sceneNode2D);
+                return;
+            }
+
+            GD.PushWarning("请先在场景树中选择一个 Node2D 作为编辑根节点。");
+        }
+
+        private void SetEditRoot(Node2D root)
+        {
+            _editRoot = root;
+            if (_rootLabel != null)
+            {
+                _rootLabel.Text = $"编辑根节点：{root.GetPath()}";
+            }
+
+            RefreshPolygonList();
+            SetStatus($"已绑定编辑根节点: {root.Name}");
+        }
+
+        private void CreatePolygonNode()
+        {
+            if (!EnsureEditRoot())
+            {
+                return;
+            }
+
+            PolygonAreaType type = GetCurrentType();
+            var polygon = new Polygon2D
+            {
+                Name = GetNextPolygonName(type),
+                Color = GetAreaColor(type),
+                Polygon = CreateDefaultPolygon(),
+            };
+            MarkPolygonNode(polygon, type);
+
+            _editRoot!.AddChild(polygon);
+            TrySetOwner(polygon);
+            RefreshPolygonList();
+            SelectEditorNode(polygon);
+            SetStatus($"已新建区域: {polygon.Name}");
         }
 
         private void DeleteSelectedPolygon()
         {
-            _canvas?.DeleteSelectedPolygon();
+            Polygon2D? polygon = GetSelectedPolygonNode();
+            if (polygon == null)
+            {
+                GD.PushWarning("请先在列表或场景树中选择一个多边形区域。");
+                return;
+            }
+
+            string nodeName = polygon.Name;
+            polygon.GetParent()?.RemoveChild(polygon);
+            polygon.QueueFree();
+            RefreshPolygonList();
+            SetStatus($"已删除区域: {nodeName}");
         }
 
         private void OnPolygonSelected(long index)
         {
-            _canvas?.SelectPolygon((int)index);
+            List<Polygon2D> polygons = GetPolygonNodes();
+            if (index < 0 || index >= polygons.Count)
+            {
+                return;
+            }
+
+            SelectEditorNode(polygons[(int)index]);
         }
 
         private void RefreshPolygonList()
         {
-            if (_polygonList == null || _canvas == null)
+            if (_polygonList == null)
             {
                 return;
             }
 
             _polygonList.Clear();
 
-            IReadOnlyList<MapPolygonData> polygons = _canvas.Polygons;
-            for (int i = 0; i < polygons.Count; i++)
+            foreach (Polygon2D polygon in GetPolygonNodes())
             {
-                MapPolygonData polygon = polygons[i];
-                _polygonList.AddItem($"{polygon.Name} [{polygon.Type}] {polygon.Points.Count}");
-
-                if (i == _canvas.SelectedPolygonIndex)
-                {
-                    _polygonList.Select(i);
-                }
+                PolygonAreaType type = GetPolygonType(polygon);
+                _polygonList.AddItem($"{polygon.Name} [{type}] {polygon.Polygon.Length}");
             }
         }
 
@@ -214,23 +309,24 @@ namespace LccEditor
                 return;
             }
 
+            if (!EnsureEditRoot())
+            {
+                return;
+            }
+
             string savePath = GetJsonPath(_texturePath);
             string globalPath = ProjectSettings.GlobalizePath(savePath);
-            string directory = Path.GetDirectoryName(globalPath);
+            string? directory = Path.GetDirectoryName(globalPath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            if (_canvas == null)
-            {
-                return;
-            }
-
-            MapPolygonDocument document = _canvas.CreateDocument();
+            MapPolygonDocument document = CreateDocument();
             string json = JsonSerializer.Serialize(document, MapPolygonJson.Options);
             File.WriteAllText(globalPath, json, Encoding.UTF8);
             GD.Print($"保存多边形区域: {savePath}");
+            SetStatus($"已保存: {savePath}");
         }
 
         private void Load()
@@ -241,26 +337,250 @@ namespace LccEditor
                 return;
             }
 
+            if (!EnsureEditRoot())
+            {
+                return;
+            }
+
             string savePath = GetJsonPath(_texturePath);
             string globalPath = ProjectSettings.GlobalizePath(savePath);
             if (!File.Exists(globalPath))
             {
-                _canvas?.ClearPolygons();
-                RefreshPolygonList();
+                GD.PushWarning($"未找到多边形 JSON: {savePath}");
                 return;
             }
 
             string json = File.ReadAllText(globalPath, Encoding.UTF8);
-            MapPolygonDocument document = JsonSerializer.Deserialize<MapPolygonDocument>(json, MapPolygonJson.Options);
+            MapPolygonDocument? document = JsonSerializer.Deserialize<MapPolygonDocument>(json, MapPolygonJson.Options);
             if (document == null)
             {
                 GD.PushWarning($"无法读取多边形区域: {savePath}");
                 return;
             }
 
-            _canvas?.LoadDocument(document);
+            ClearManagedPolygonNodes();
+            foreach (MapPolygonData data in document.Polygons)
+            {
+                var polygon = new Polygon2D
+                {
+                    Name = string.IsNullOrWhiteSpace(data.Name) ? GetNextPolygonName(data.Type) : data.Name,
+                    Color = GetAreaColor(data.Type),
+                    Polygon = data.Points.ToArray(),
+                };
+                MarkPolygonNode(polygon, data.Type);
+
+                _editRoot!.AddChild(polygon);
+                TrySetOwner(polygon);
+            }
+
             RefreshPolygonList();
             GD.Print($"加载多边形区域: {savePath}");
+            SetStatus($"已加载: {savePath}");
+        }
+
+        private MapPolygonDocument CreateDocument()
+        {
+            var document = new MapPolygonDocument
+            {
+                Texture = _texturePath,
+                Width = (int)_textureSize.X,
+                Height = (int)_textureSize.Y,
+            };
+
+            foreach (Polygon2D polygon in GetPolygonNodes())
+            {
+                document.Polygons.Add(new MapPolygonData
+                {
+                    Name = polygon.Name,
+                    Type = GetPolygonType(polygon),
+                    Points = GetPointsInRootSpace(polygon),
+                });
+            }
+
+            return document;
+        }
+
+        private List<Vector2> GetPointsInRootSpace(Polygon2D polygon)
+        {
+            var points = new List<Vector2>();
+            Transform2D rootTransform = _editRoot!.GlobalTransform.AffineInverse();
+
+            foreach (Vector2 point in polygon.Polygon)
+            {
+                Vector2 globalPoint = polygon.GlobalTransform * point;
+                points.Add(rootTransform * globalPoint);
+            }
+
+            return points;
+        }
+
+        private List<Polygon2D> GetPolygonNodes()
+        {
+            var polygons = new List<Polygon2D>();
+            if (_editRoot == null)
+            {
+                return polygons;
+            }
+
+            CollectPolygonNodes(_editRoot, polygons);
+            return polygons;
+        }
+
+        private void CollectPolygonNodes(Node node, List<Polygon2D> polygons)
+        {
+            foreach (Node child in node.GetChildren())
+            {
+                if (child is Polygon2D polygon && IsManagedPolygonNode(polygon))
+                {
+                    polygons.Add(polygon);
+                }
+
+                CollectPolygonNodes(child, polygons);
+            }
+        }
+
+        private Polygon2D? GetSelectedPolygonNode()
+        {
+            Godot.Collections.Array<Node> selectedNodes = EditorPlugin.GetEditorInterface().GetSelection().GetSelectedNodes();
+            if (selectedNodes.Count > 0 && selectedNodes[0] is Polygon2D selectedPolygon && IsManagedPolygonNode(selectedPolygon))
+            {
+                return selectedPolygon;
+            }
+
+            if (_polygonList == null)
+            {
+                return null;
+            }
+
+            int[] selectedItems = _polygonList.GetSelectedItems();
+            if (selectedItems.Length == 0)
+            {
+                return null;
+            }
+
+            List<Polygon2D> polygons = GetPolygonNodes();
+            int index = (int)selectedItems[0];
+            return index >= 0 && index < polygons.Count ? polygons[index] : null;
+        }
+
+        private bool EnsureEditRoot()
+        {
+            if (_editRoot != null && GodotObject.IsInstanceValid(_editRoot))
+            {
+                return true;
+            }
+
+            BindSelectedRoot();
+            return _editRoot != null && GodotObject.IsInstanceValid(_editRoot);
+        }
+
+        private void SelectEditorNode(Node node)
+        {
+            EditorSelection selection = EditorPlugin.GetEditorInterface().GetSelection();
+            selection.Clear();
+            selection.AddNode(node);
+        }
+
+        private void ClearManagedPolygonNodes()
+        {
+            List<Polygon2D> polygons = GetPolygonNodes();
+            foreach (Polygon2D polygon in polygons)
+            {
+                polygon.GetParent()?.RemoveChild(polygon);
+                polygon.QueueFree();
+            }
+        }
+
+        private void TrySetOwner(Node node)
+        {
+            Node sceneRoot = EditorPlugin.GetEditorInterface().GetEditedSceneRoot();
+            if (sceneRoot != null && sceneRoot.IsAncestorOf(node))
+            {
+                node.Owner = sceneRoot;
+            }
+        }
+
+        private void MarkPolygonNode(Polygon2D polygon, PolygonAreaType type)
+        {
+            polygon.SetMeta(EditorMetaKey, true);
+            polygon.SetMeta(TypeMetaKey, type.ToString());
+        }
+
+        private bool IsManagedPolygonNode(Polygon2D polygon)
+        {
+            if (polygon.HasMeta(EditorMetaKey))
+            {
+                return true;
+            }
+
+            return polygon.Name.ToString().StartsWith($"{PolygonAreaType.Collision}_", StringComparison.Ordinal)
+                   || polygon.Name.ToString().StartsWith($"{PolygonAreaType.Occlusion}_", StringComparison.Ordinal);
+        }
+
+        private PolygonAreaType GetPolygonType(Polygon2D polygon)
+        {
+            if (polygon.HasMeta(TypeMetaKey)
+                && Enum.TryParse(polygon.GetMeta(TypeMetaKey).ToString(), out PolygonAreaType type))
+            {
+                return type;
+            }
+
+            string name = polygon.Name.ToString();
+            if (name.StartsWith($"{PolygonAreaType.Occlusion}_", StringComparison.Ordinal))
+            {
+                return PolygonAreaType.Occlusion;
+            }
+
+            return PolygonAreaType.Collision;
+        }
+
+        private PolygonAreaType GetCurrentType()
+        {
+            if (_typeOption == null)
+            {
+                return _currentType;
+            }
+
+            return _typeOption.Selected == 1 ? PolygonAreaType.Occlusion : PolygonAreaType.Collision;
+        }
+
+        private string GetNextPolygonName(PolygonAreaType type)
+        {
+            int index = 1;
+            string prefix = type.ToString();
+            HashSet<string> existingNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (Polygon2D polygon in GetPolygonNodes())
+            {
+                existingNames.Add(polygon.Name);
+            }
+
+            string name;
+            do
+            {
+                name = $"{prefix}_{index:000}";
+                index++;
+            } while (existingNames.Contains(name));
+
+            return name;
+        }
+
+        private void SetStatus(string message)
+        {
+            if (_statusLabel != null)
+            {
+                _statusLabel.Text = message;
+            }
+        }
+
+        private static Vector2[] CreateDefaultPolygon()
+        {
+            return new[]
+            {
+                new Vector2(0, 0),
+                new Vector2(96, 0),
+                new Vector2(96, 96),
+                new Vector2(0, 96),
+            };
         }
 
         private static string GetJsonPath(string texturePath)
@@ -273,370 +593,12 @@ namespace LccEditor
 
             return $"{texturePath.Substring(0, texturePath.Length - extension.Length)}.poly.json";
         }
-    }
-
-    public sealed partial class MapPolygonCanvas : Control
-    {
-        private readonly List<MapPolygonData> _polygons = new List<MapPolygonData>();
-        private readonly List<Vector2> _currentPoints = new List<Vector2>();
-        private readonly List<Polygon2D> _polygonNodes = new List<Polygon2D>();
-        private Texture2D? _texture;
-        private string _texturePath = string.Empty;
-        private Vector2 _textureSize;
-        private Rect2 _imageRect;
-
-        public event Action? PolygonsChanged;
-        public event Action? SelectionChanged;
-
-        public PolygonAreaType CurrentType { get; set; }
-        public int SelectedPolygonIndex { get; private set; } = -1;
-        public IReadOnlyList<MapPolygonData> Polygons => _polygons;
-
-        public MapPolygonCanvas()
-        {
-            CustomMinimumSize = new Vector2(480, 360);
-            MouseDefaultCursorShape = CursorShape.Cross;
-            Resized += OnCanvasResized;
-        }
-
-        public void SetTexture(string path, Texture2D texture)
-        {
-            _texturePath = path;
-            _texture = texture;
-            _textureSize = texture.GetSize();
-            _polygons.Clear();
-            _currentPoints.Clear();
-            SelectedPolygonIndex = -1;
-            RefreshPolygonNodes();
-            QueueRedraw();
-            PolygonsChanged?.Invoke();
-        }
-
-        public void FinishCurrentPolygon()
-        {
-            if (_currentPoints.Count < 3)
-            {
-                return;
-            }
-
-            _polygons.Add(new MapPolygonData
-            {
-                Name = $"Polygon_{_polygons.Count + 1}",
-                Type = CurrentType,
-                Points = new List<Vector2>(_currentPoints),
-            });
-
-            _currentPoints.Clear();
-            SelectedPolygonIndex = _polygons.Count - 1;
-            RefreshPolygonNodes();
-            QueueRedraw();
-            PolygonsChanged?.Invoke();
-        }
-
-        public void DeleteSelectedPolygon()
-        {
-            if (SelectedPolygonIndex < 0 || SelectedPolygonIndex >= _polygons.Count)
-            {
-                return;
-            }
-
-            _polygons.RemoveAt(SelectedPolygonIndex);
-            SelectedPolygonIndex = -1;
-            RefreshPolygonNodes();
-            QueueRedraw();
-            PolygonsChanged?.Invoke();
-        }
-
-        public void SelectPolygon(int index)
-        {
-            if (index < 0 || index >= _polygons.Count)
-            {
-                return;
-            }
-
-            SelectedPolygonIndex = index;
-            RefreshPolygonNodes();
-            QueueRedraw();
-            SelectionChanged?.Invoke();
-        }
-
-        public void ClearPolygons()
-        {
-            _polygons.Clear();
-            _currentPoints.Clear();
-            SelectedPolygonIndex = -1;
-            RefreshPolygonNodes();
-            QueueRedraw();
-            PolygonsChanged?.Invoke();
-        }
-
-        public MapPolygonDocument CreateDocument()
-        {
-            return new MapPolygonDocument
-            {
-                Texture = _texturePath,
-                Width = (int)_textureSize.X,
-                Height = (int)_textureSize.Y,
-                Polygons = new List<MapPolygonData>(_polygons),
-            };
-        }
-
-        public void LoadDocument(MapPolygonDocument document)
-        {
-            _polygons.Clear();
-            _currentPoints.Clear();
-            SelectedPolygonIndex = -1;
-
-            if (document.Polygons != null)
-            {
-                _polygons.AddRange(document.Polygons);
-            }
-
-            QueueRedraw();
-            RefreshPolygonNodes();
-            PolygonsChanged?.Invoke();
-        }
-
-        public override void _GuiInput(InputEvent @event)
-        {
-            if (_texture == null)
-            {
-                return;
-            }
-
-            if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
-            {
-                Vector2 imagePoint = ToImagePoint(mouseButton.Position);
-                if (!IsPointInTexture(imagePoint))
-                {
-                    return;
-                }
-
-                if (mouseButton.ButtonIndex == MouseButton.Left)
-                {
-                    if (_currentPoints.Count >= 3 && imagePoint.DistanceTo(_currentPoints[0]) <= 8 / GetImageScale())
-                    {
-                        FinishCurrentPolygon();
-                    }
-                    else
-                    {
-                        _currentPoints.Add(imagePoint);
-                        SelectedPolygonIndex = -1;
-                        RefreshPolygonNodes();
-                        QueueRedraw();
-                        SelectionChanged?.Invoke();
-                    }
-                }
-                else if (mouseButton.ButtonIndex == MouseButton.Right)
-                {
-                    if (!DeletePointAt(imagePoint))
-                    {
-                        SelectPolygonAt(imagePoint);
-                    }
-                }
-            }
-        }
-
-        public override void _Draw()
-        {
-            if (_texture == null)
-            {
-                DrawString(ThemeDB.FallbackFont, new Vector2(24, 40), "请选择地图图片", HorizontalAlignment.Left, -1, 16, Colors.Gray);
-                return;
-            }
-
-            UpdateImageRect();
-            DrawTextureRect(_texture, _imageRect, false);
-
-            for (int i = 0; i < _polygons.Count; i++)
-            {
-                DrawPolygonData(_polygons[i], i == SelectedPolygonIndex);
-            }
-
-            DrawCurrentPolygon();
-        }
-
-        private void DrawPolygonData(MapPolygonData polygon, bool selected)
-        {
-            if (polygon.Points == null || polygon.Points.Count == 0)
-            {
-                return;
-            }
-
-            Vector2[] screenPoints = ToScreenPoints(polygon.Points);
-            Color color = GetAreaColor(polygon.Type);
-            DrawPolyline(screenPoints, color, selected ? 3 : 2, true);
-
-            foreach (Vector2 point in screenPoints)
-            {
-                DrawCircle(point, selected ? 5 : 4, color);
-            }
-        }
-
-        private void DrawCurrentPolygon()
-        {
-            if (_currentPoints.Count == 0)
-            {
-                return;
-            }
-
-            Vector2[] screenPoints = ToScreenPoints(_currentPoints);
-            DrawPolyline(screenPoints, Colors.Yellow, 2, false);
-
-            foreach (Vector2 point in screenPoints)
-            {
-                DrawCircle(point, 4, Colors.Yellow);
-            }
-        }
-
-        private void SelectPolygonAt(Vector2 imagePoint)
-        {
-            for (int i = _polygons.Count - 1; i >= 0; i--)
-            {
-                if (Geometry2D.IsPointInPolygon(imagePoint, _polygons[i].Points.ToArray()))
-                {
-                    SelectedPolygonIndex = i;
-                    RefreshPolygonNodes();
-                    QueueRedraw();
-                    SelectionChanged?.Invoke();
-                    return;
-                }
-            }
-
-            SelectedPolygonIndex = -1;
-            RefreshPolygonNodes();
-            QueueRedraw();
-            SelectionChanged?.Invoke();
-        }
-
-        private bool DeletePointAt(Vector2 imagePoint)
-        {
-            float radius = 8 / GetImageScale();
-
-            for (int polygonIndex = _polygons.Count - 1; polygonIndex >= 0; polygonIndex--)
-            {
-                MapPolygonData polygon = _polygons[polygonIndex];
-                for (int pointIndex = 0; pointIndex < polygon.Points.Count; pointIndex++)
-                {
-                    if (imagePoint.DistanceTo(polygon.Points[pointIndex]) <= radius)
-                    {
-                        polygon.Points.RemoveAt(pointIndex);
-                        SelectedPolygonIndex = polygonIndex;
-
-                        if (polygon.Points.Count < 3)
-                        {
-                            _polygons.RemoveAt(polygonIndex);
-                            SelectedPolygonIndex = -1;
-                        }
-
-                        RefreshPolygonNodes();
-                        QueueRedraw();
-                        PolygonsChanged?.Invoke();
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private void OnCanvasResized()
-        {
-            RefreshPolygonNodes();
-            QueueRedraw();
-        }
-
-        private void RefreshPolygonNodes()
-        {
-            ClearPolygonNodes();
-
-            if (_texture == null)
-            {
-                return;
-            }
-
-            UpdateImageRect();
-
-            for (int i = 0; i < _polygons.Count; i++)
-            {
-                MapPolygonData polygon = _polygons[i];
-                if (polygon.Points == null || polygon.Points.Count < 3)
-                {
-                    continue;
-                }
-
-                Color color = GetAreaColor(polygon.Type);
-                var polygonNode = new Polygon2D
-                {
-                    Polygon = ToScreenPoints(polygon.Points),
-                    Color = new Color(color.R, color.G, color.B, i == SelectedPolygonIndex ? 0.35f : 0.18f),
-                };
-
-                _polygonNodes.Add(polygonNode);
-                AddChild(polygonNode);
-            }
-        }
-
-        private void ClearPolygonNodes()
-        {
-            foreach (Polygon2D node in _polygonNodes)
-            {
-                RemoveChild(node);
-                node.QueueFree();
-            }
-
-            _polygonNodes.Clear();
-        }
-
-        private Vector2[] ToScreenPoints(IReadOnlyList<Vector2> points)
-        {
-            Vector2[] result = new Vector2[points.Count];
-            for (int i = 0; i < points.Count; i++)
-            {
-                result[i] = ToScreenPoint(points[i]);
-            }
-
-            return result;
-        }
-
-        private Vector2 ToScreenPoint(Vector2 imagePoint)
-        {
-            return _imageRect.Position + imagePoint * GetImageScale();
-        }
-
-        private Vector2 ToImagePoint(Vector2 screenPoint)
-        {
-            UpdateImageRect();
-            return (screenPoint - _imageRect.Position) / GetImageScale();
-        }
-
-        private bool IsPointInTexture(Vector2 imagePoint)
-        {
-            return imagePoint.X >= 0 && imagePoint.Y >= 0 && imagePoint.X <= _textureSize.X && imagePoint.Y <= _textureSize.Y;
-        }
-
-        private float GetImageScale()
-        {
-            if (_textureSize.X <= 0 || _textureSize.Y <= 0)
-            {
-                return 1;
-            }
-
-            float scaleX = Size.X / _textureSize.X;
-            float scaleY = Size.Y / _textureSize.Y;
-            return Mathf.Min(scaleX, scaleY);
-        }
-
-        private void UpdateImageRect()
-        {
-            float scale = GetImageScale();
-            Vector2 drawSize = _textureSize * scale;
-            _imageRect = new Rect2((Size - drawSize) * 0.5f, drawSize);
-        }
 
         private static Color GetAreaColor(PolygonAreaType type)
         {
-            return type == PolygonAreaType.Occlusion ? Colors.DeepSkyBlue : Colors.OrangeRed;
+            return type == PolygonAreaType.Occlusion
+                ? new Color(0.0f, 0.75f, 1.0f, 0.35f)
+                : new Color(1.0f, 0.25f, 0.1f, 0.35f);
         }
     }
 
