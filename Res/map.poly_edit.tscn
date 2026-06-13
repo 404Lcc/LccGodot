@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://cy248je2ed4if"]
+
+[ext_resource type="Texture2D" uid="uid://b6ffby2nsu5ib" path="res://Res/map.jpg" id="1_jduex"]
+
+[node name="MapPolygonEditorRoot" type="Node2D" unique_id=1752625739]
+
+[node name="MapTexture" type="Sprite2D" parent="." unique_id=1612743868]
+texture = ExtResource("1_jduex")
+centered = false
+
+[node name="Polygons" type="Node2D" parent="." unique_id=577385171]
+
+[node name="Collision_001" type="Polygon2D" parent="Polygons" unique_id=1311422876]
+color = Color(0, 1, 0, 0.35)
+polygon = PackedVector2Array(81, 114, 145, 171, 211, 177, 208, 229, 209, 272, 117, 270, 42, 268, 29, 222, 25, 177)
+metadata/map_polygon_editor = true
+metadata/map_polygon_type = "Collision"

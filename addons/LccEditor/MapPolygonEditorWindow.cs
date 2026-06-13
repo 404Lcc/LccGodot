@@ -13,6 +13,9 @@ namespace LccEditor
     {
         private const string EditorMetaKey = "map_polygon_editor";
         private const string TypeMetaKey = "map_polygon_type";
+        private const string RootNodeName = "MapPolygonEditorRoot";
+        private const string TextureNodeName = "MapTexture";
+        private const string PolygonsNodeName = "Polygons";
 
         private OptionButton? _typeOption;
         private Label? _pathLabel;
@@ -22,6 +25,8 @@ namespace LccEditor
         private FileDialog? _fileDialog;
         private Node2D? _editRoot;
         private string _texturePath = string.Empty;
+        private string _editScenePath = string.Empty;
+        private string _jsonPath = string.Empty;
         private Vector2 _textureSize;
         private PolygonAreaType _currentType = PolygonAreaType.Collision;
 
@@ -53,13 +58,6 @@ namespace LccEditor
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             };
             root.AddChild(toolbar);
-
-            var bindRootButton = new Button
-            {
-                Text = "绑定选中节点",
-            };
-            bindRootButton.Pressed += BindSelectedRoot;
-            toolbar.AddChild(bindRootButton);
 
             var openButton = new Button
             {
@@ -122,7 +120,7 @@ namespace LccEditor
 
             _rootLabel = new Label
             {
-                Text = "编辑根节点：未绑定",
+                Text = "编辑场景：未创建",
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 ClipText = true,
             };
@@ -130,7 +128,7 @@ namespace LccEditor
 
             _statusLabel = new Label
             {
-                Text = "绑定 Node2D 后，新建或加载 Polygon2D，用 Godot 原生多边形编辑点位。",
+                Text = "选择图片后会自动创建或打开同名编辑场景。",
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
             };
@@ -180,18 +178,124 @@ namespace LccEditor
 
             _texturePath = path;
             _textureSize = texture.GetSize();
+            _editScenePath = GetEditScenePath(path);
+            _jsonPath = GetJsonPath(path);
 
             if (_pathLabel != null)
             {
                 _pathLabel.Text = path;
             }
 
-            SetStatus($"已选择图片: {path}");
+            OpenOrCreateEditScene(path, texture);
         }
 
         private void OnTypeSelected(long index)
         {
             _currentType = index == 1 ? PolygonAreaType.Occlusion : PolygonAreaType.Collision;
+        }
+
+        private void OpenOrCreateEditScene(string texturePath, Texture2D texture)
+        {
+            string globalScenePath = ProjectSettings.GlobalizePath(_editScenePath);
+            if (File.Exists(globalScenePath))
+            {
+                EditorPlugin.GetEditorInterface().OpenSceneFromPath(_editScenePath);
+                BindScenePolygonRoot();
+                SetStatus($"已打开编辑场景: {_editScenePath}");
+                return;
+            }
+
+            CreateEditScene(texturePath, texture);
+            if (File.Exists(ProjectSettings.GlobalizePath(_jsonPath)))
+            {
+                Load();
+            }
+            SetStatus($"已创建编辑场景: {_editScenePath}");
+        }
+
+        private void CreateEditScene(string texturePath, Texture2D texture)
+        {
+            var sceneRoot = new Node2D
+            {
+                Name = RootNodeName,
+            };
+
+            var sprite = new Sprite2D
+            {
+                Name = TextureNodeName,
+                Texture = texture,
+                Centered = false,
+            };
+            sceneRoot.AddChild(sprite);
+            sprite.Owner = sceneRoot;
+
+            var polygonsRoot = new Node2D
+            {
+                Name = PolygonsNodeName,
+            };
+            sceneRoot.AddChild(polygonsRoot);
+            polygonsRoot.Owner = sceneRoot;
+
+            _editRoot = polygonsRoot;
+
+            var packedScene = new PackedScene();
+            Error packResult = packedScene.Pack(sceneRoot);
+            if (packResult != Error.Ok)
+            {
+                GD.PushWarning($"无法创建编辑场景: {_editScenePath}, {packResult}");
+                sceneRoot.QueueFree();
+                return;
+            }
+
+            string globalScenePath = ProjectSettings.GlobalizePath(_editScenePath);
+            string? directory = Path.GetDirectoryName(globalScenePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            Error saveResult = ResourceSaver.Save(packedScene, _editScenePath);
+            if (saveResult != Error.Ok)
+            {
+                GD.PushWarning($"无法保存编辑场景: {_editScenePath}, {saveResult}");
+                sceneRoot.QueueFree();
+                return;
+            }
+
+            sceneRoot.QueueFree();
+            EditorPlugin.GetEditorInterface().OpenSceneFromPath(_editScenePath);
+            BindScenePolygonRoot();
+        }
+
+        private void BindScenePolygonRoot()
+        {
+            Node editedSceneRoot = EditorPlugin.GetEditorInterface().GetEditedSceneRoot();
+            if (editedSceneRoot == null)
+            {
+                _editRoot = null;
+                GD.PushWarning("无法获取当前编辑场景。");
+                return;
+            }
+
+            Node? polygonsRoot = editedSceneRoot.GetNodeOrNull<Node2D>(PolygonsNodeName);
+            if (polygonsRoot == null)
+            {
+                var node2D = new Node2D
+                {
+                    Name = PolygonsNodeName,
+                };
+                editedSceneRoot.AddChild(node2D);
+                node2D.Owner = editedSceneRoot;
+                polygonsRoot = node2D;
+            }
+
+            _editRoot = polygonsRoot as Node2D;
+            if (_rootLabel != null)
+            {
+                _rootLabel.Text = $"编辑场景：{_editScenePath} | JSON：{_jsonPath}";
+            }
+
+            RefreshPolygonList();
         }
 
         private void BindSelectedRoot()
@@ -242,20 +346,25 @@ namespace LccEditor
                 return;
             }
 
+            CreatePolygonNode(Array.Empty<Vector2>());
+            RefreshPolygonList();
+            SetStatus("已新建空 Polygon2D，请使用 Godot 原生工具绘制多边形点。");
+        }
+
+        private void CreatePolygonNode(Vector2[] points)
+        {
             PolygonAreaType type = GetCurrentType();
             var polygon = new Polygon2D
             {
                 Name = GetNextPolygonName(type),
                 Color = GetAreaColor(type),
-                Polygon = CreateDefaultPolygon(),
+                Polygon = points,
             };
             MarkPolygonNode(polygon, type);
 
             _editRoot!.AddChild(polygon);
             TrySetOwner(polygon);
-            RefreshPolygonList();
             SelectEditorNode(polygon);
-            SetStatus($"已新建区域: {polygon.Name}");
         }
 
         private void DeleteSelectedPolygon()
@@ -306,27 +415,42 @@ namespace LccEditor
             if (string.IsNullOrEmpty(_texturePath))
             {
                 GD.PushWarning("请先选择图片。");
+                SetStatus("请先选择图片。");
                 return;
             }
 
             if (!EnsureEditRoot())
             {
+                SetStatus("保存失败：没有可用的编辑根节点。");
                 return;
             }
 
-            string savePath = GetJsonPath(_texturePath);
-            string globalPath = ProjectSettings.GlobalizePath(savePath);
-            string? directory = Path.GetDirectoryName(globalPath);
-            if (!string.IsNullOrEmpty(directory))
             {
-                Directory.CreateDirectory(directory);
-            }
+                string diagnosticSavePath = GetCurrentJsonPath();
+                string diagnosticGlobalPath = ProjectSettings.GlobalizePath(diagnosticSavePath);
+                try
+                {
+                    string? diagnosticDirectory = Path.GetDirectoryName(diagnosticGlobalPath);
+                    if (!string.IsNullOrEmpty(diagnosticDirectory))
+                    {
+                        Directory.CreateDirectory(diagnosticDirectory);
+                    }
 
-            MapPolygonDocument document = CreateDocument();
-            string json = JsonSerializer.Serialize(document, MapPolygonJson.Options);
-            File.WriteAllText(globalPath, json, Encoding.UTF8);
-            GD.Print($"保存多边形区域: {savePath}");
-            SetStatus($"已保存: {savePath}");
+                    MapPolygonDocument diagnosticDocument = CreateDocument();
+                    string diagnosticJson = JsonSerializer.Serialize(diagnosticDocument, MapPolygonJson.Options);
+                    File.WriteAllText(diagnosticGlobalPath, diagnosticJson, Encoding.UTF8);
+                    EditorPlugin.GetEditorInterface().GetResourceFilesystem().Scan();
+                    GD.Print($"保存多边形区域: {diagnosticSavePath} -> {diagnosticGlobalPath}");
+                    SaveEditScene();
+                    SetStatus($"已保存: {diagnosticGlobalPath}");
+                }
+                catch (Exception ex)
+                {
+                    string message = $"保存多边形 JSON 失败: {diagnosticSavePath} -> {diagnosticGlobalPath}\n{ex}";
+                    GD.PushError(message);
+                    SetStatus($"保存失败: {diagnosticGlobalPath}");
+                }
+            }
         }
 
         private void Load()
@@ -334,48 +458,72 @@ namespace LccEditor
             if (string.IsNullOrEmpty(_texturePath))
             {
                 GD.PushWarning("请先选择图片。");
+                SetStatus("请先选择图片。");
                 return;
             }
 
             if (!EnsureEditRoot())
             {
+                SetStatus("加载失败：没有可用的编辑根节点。");
                 return;
             }
 
-            string savePath = GetJsonPath(_texturePath);
+            string savePath = GetCurrentJsonPath();
             string globalPath = ProjectSettings.GlobalizePath(savePath);
             if (!File.Exists(globalPath))
             {
-                GD.PushWarning($"未找到多边形 JSON: {savePath}");
+                string message = $"未找到多边形 JSON: {savePath} -> {globalPath}";
+                GD.PushWarning(message);
+                SetStatus(message);
                 return;
             }
 
-            string json = File.ReadAllText(globalPath, Encoding.UTF8);
-            MapPolygonDocument? document = JsonSerializer.Deserialize<MapPolygonDocument>(json, MapPolygonJson.Options);
-            if (document == null)
+            try
             {
-                GD.PushWarning($"无法读取多边形区域: {savePath}");
-                return;
-            }
-
-            ClearManagedPolygonNodes();
-            foreach (MapPolygonData data in document.Polygons)
-            {
-                var polygon = new Polygon2D
+                string json = File.ReadAllText(globalPath, Encoding.UTF8);
+                MapPolygonDocument? document = JsonSerializer.Deserialize<MapPolygonDocument>(json, MapPolygonJson.Options);
+                if (document == null)
                 {
-                    Name = string.IsNullOrWhiteSpace(data.Name) ? GetNextPolygonName(data.Type) : data.Name,
-                    Color = GetAreaColor(data.Type),
-                    Polygon = data.Points.ToArray(),
-                };
-                MarkPolygonNode(polygon, data.Type);
+                    string message = $"无法读取多边形区域: {savePath} -> {globalPath}";
+                    GD.PushWarning(message);
+                    SetStatus(message);
+                    return;
+                }
 
-                _editRoot!.AddChild(polygon);
-                TrySetOwner(polygon);
+                ClearManagedPolygonNodes();
+                var loadedPolygons = new List<Polygon2D>();
+                foreach (MapPolygonData data in document.Polygons)
+                {
+                    var polygon = new Polygon2D
+                    {
+                        Name = string.IsNullOrWhiteSpace(data.Name) ? GetNextPolygonName(data.Type) : data.Name,
+                        Color = GetAreaColor(data.Type),
+                        Polygon = data.Points.ToArray(),
+                    };
+                    MarkPolygonNode(polygon, data.Type);
+
+                    _editRoot!.AddChild(polygon);
+                    TrySetOwner(polygon);
+                    loadedPolygons.Add(polygon);
+                }
+
+                RefreshPolygonList();
+                if (loadedPolygons.Count > 0)
+                {
+                    SelectEditorNode(loadedPolygons[0]);
+                }
+
+                SaveEditScene();
+                EditorPlugin.GetEditorInterface().GetResourceFilesystem().Scan();
+                GD.Print($"加载多边形区域: {savePath} -> {globalPath}, count={loadedPolygons.Count}");
+                SetStatus($"已加载 {loadedPolygons.Count} 个区域: {globalPath}");
             }
-
-            RefreshPolygonList();
-            GD.Print($"加载多边形区域: {savePath}");
-            SetStatus($"已加载: {savePath}");
+            catch (Exception ex)
+            {
+                string message = $"加载多边形 JSON 失败: {savePath} -> {globalPath}\n{ex}";
+                GD.PushError(message);
+                SetStatus($"加载失败: {globalPath}");
+            }
         }
 
         private MapPolygonDocument CreateDocument()
@@ -470,7 +618,15 @@ namespace LccEditor
                 return true;
             }
 
-            BindSelectedRoot();
+            if (!string.IsNullOrEmpty(_editScenePath))
+            {
+                BindScenePolygonRoot();
+            }
+            else
+            {
+                BindSelectedRoot();
+            }
+
             return _editRoot != null && GodotObject.IsInstanceValid(_editRoot);
         }
 
@@ -497,6 +653,20 @@ namespace LccEditor
             if (sceneRoot != null && sceneRoot.IsAncestorOf(node))
             {
                 node.Owner = sceneRoot;
+            }
+        }
+
+        private void SaveEditScene()
+        {
+            if (string.IsNullOrEmpty(_editScenePath))
+            {
+                return;
+            }
+
+            Error result = EditorPlugin.GetEditorInterface().SaveScene();
+            if (result != Error.Ok)
+            {
+                GD.PushWarning($"无法保存编辑场景: {_editScenePath}, {result}");
             }
         }
 
@@ -572,17 +742,6 @@ namespace LccEditor
             }
         }
 
-        private static Vector2[] CreateDefaultPolygon()
-        {
-            return new[]
-            {
-                new Vector2(0, 0),
-                new Vector2(96, 0),
-                new Vector2(96, 96),
-                new Vector2(0, 96),
-            };
-        }
-
         private static string GetJsonPath(string texturePath)
         {
             string extension = Path.GetExtension(texturePath);
@@ -594,12 +753,29 @@ namespace LccEditor
             return $"{texturePath.Substring(0, texturePath.Length - extension.Length)}.poly.json";
         }
 
+        private string GetCurrentJsonPath()
+        {
+            return string.IsNullOrEmpty(_jsonPath) ? GetJsonPath(_texturePath) : _jsonPath;
+        }
+
+        private static string GetEditScenePath(string texturePath)
+        {
+            string extension = Path.GetExtension(texturePath);
+            if (string.IsNullOrEmpty(extension))
+            {
+                return $"{texturePath}.poly_edit.tscn";
+            }
+
+            return $"{texturePath.Substring(0, texturePath.Length - extension.Length)}.poly_edit.tscn";
+        }
+
         private static Color GetAreaColor(PolygonAreaType type)
         {
             return type == PolygonAreaType.Occlusion
-                ? new Color(0.0f, 0.75f, 1.0f, 0.35f)
-                : new Color(1.0f, 0.25f, 0.1f, 0.35f);
+                ? new Color(0.0f, 0.0f, 0.0f, 0.35f)
+                : new Color(0.0f, 1.0f, 0.0f, 0.35f);
         }
+
     }
 
     public enum PolygonAreaType
