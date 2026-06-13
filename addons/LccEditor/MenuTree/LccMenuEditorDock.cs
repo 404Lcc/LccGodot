@@ -131,7 +131,7 @@ namespace LccEditor
             }
         }
 
-        private IEnumerable<EditorWindowData> FindEditorWindows()
+        private List<EditorWindowData> FindEditorWindows()
         {
             List<EditorWindowData> list = new List<EditorWindowData>();
 
@@ -151,7 +151,7 @@ namespace LccEditor
                 list.Add(new EditorWindowData(type, attribute));
             }
 
-            return list.OrderBy(item => item.Attribute.Order).ThenBy(item => item.Attribute.Name, StringComparer.Ordinal);
+            return list.OrderBy(item => item.Attribute.Order).ThenBy(item => item.Attribute.Name, StringComparer.Ordinal).ToList();
         }
 
         private TreeItem GetOrCreateMenuItem(TreeItem root, string menuPath)
