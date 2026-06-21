@@ -46,7 +46,7 @@ namespace LccHotfix
         public bool BuildTexture { get; set; }
         public uint CollisionLayer { get; set; } = 1;
         public uint CollisionMask { get; set; } = 1;
-        public int OccluderLightMask { get; set; } = 1;
+        public int OcclusionZIndex { get; set; } = 100;
         public string RootName { get; set; } = "MapPolygonRuntimeRoot";
     }
 
@@ -106,6 +106,12 @@ namespace LccHotfix
             Node2D root = CreateRoot(options.RootName);
             parent.AddChild(root);
 
+            Texture2D occlusionTexture = null!;
+            if (options.BuildOcclusion)
+            {
+                occlusionTexture = LoadTexture(document.Texture);
+            }
+
             if (options.BuildTexture)
             {
                 CreateTextureNode(root, document.Texture);
@@ -129,7 +135,7 @@ namespace LccHotfix
 
                 if (data.Type == MapPolygonAreaType.Occlusion && options.BuildOcclusion)
                 {
-                    CreateOcclusionNode(occlusionRoot, data, options);
+                    CreateOcclusionNode(occlusionRoot, data, options, occlusionTexture);
                 }
             }
 
@@ -199,10 +205,9 @@ namespace LccHotfix
         /// </summary>
         private static void CreateTextureNode(Node parent, string texturePath)
         {
-            Texture2D texture = ResourceLoader.Load<Texture2D>(texturePath);
+            Texture2D texture = LoadTexture(texturePath);
             if (texture == null)
             {
-                GD.PushWarning($"无法加载地图贴图：{texturePath}");
                 return;
             }
 
@@ -214,6 +219,20 @@ namespace LccHotfix
             };
             MarkRuntimeNode(sprite, "Texture");
             parent.AddChild(sprite);
+        }
+
+        /// <summary>
+        /// 加载地图贴图资源。
+        /// </summary>
+        private static Texture2D LoadTexture(string texturePath)
+        {
+            Texture2D texture = ResourceLoader.Load<Texture2D>(texturePath);
+            if (texture == null)
+            {
+                GD.PushWarning($"无法加载地图贴图：{texturePath}");
+            }
+
+            return texture;
         }
 
         /// <summary>
@@ -241,24 +260,27 @@ namespace LccHotfix
         }
 
         /// <summary>
-        /// 创建地图遮挡节点。
+        /// 创建地图视觉遮挡节点。
         /// </summary>
-        private static void CreateOcclusionNode(Node parent, MapPolygonData data, MapPolygonBuildOptions options)
+        private static void CreateOcclusionNode(Node parent, MapPolygonData data, MapPolygonBuildOptions options, Texture2D texture)
         {
-            var occluderPolygon = new OccluderPolygon2D
+            if (texture == null)
             {
-                Polygon = data.Points.ToArray(),
-                Closed = true,
-            };
+                return;
+            }
 
-            var occluder = new LightOccluder2D
+            Vector2[] points = data.Points.ToArray();
+            var polygon = new Polygon2D
             {
                 Name = data.Name,
-                Occluder = occluderPolygon,
-                OccluderLightMask = options.OccluderLightMask,
+                Polygon = points,
+                UV = points,
+                Texture = texture,
+                Color = Colors.White,
+                ZIndex = options.OcclusionZIndex,
             };
-            MarkRuntimeNode(occluder, data.Type.ToString());
-            parent.AddChild(occluder);
+            MarkRuntimeNode(polygon, data.Type.ToString());
+            parent.AddChild(polygon);
         }
 
         /// <summary>
