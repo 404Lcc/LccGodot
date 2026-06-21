@@ -4,14 +4,20 @@
 
 [node name="MapPolygonEditorRoot" type="Node2D" unique_id=1752625739]
 
-[node name="MapTexture" type="Sprite2D" parent="." unique_id=1612743868]
+[node name="MapTexture" type="Sprite2D" parent="." unique_id=533041842]
 texture = ExtResource("1_jduex")
 centered = false
 
-[node name="Polygons" type="Node2D" parent="." unique_id=577385171]
+[node name="Polygons" type="Node2D" parent="." unique_id=310379824]
 
-[node name="Collision_001" type="Polygon2D" parent="Polygons" unique_id=1311422876]
+[node name="Collision_001" type="Polygon2D" parent="Polygons" unique_id=1236389668]
 color = Color(0, 1, 0, 0.35)
-polygon = PackedVector2Array(81, 114, 145, 171, 211, 177, 208, 229, 209, 272, 117, 270, 42, 268, 29, 222, 25, 177)
+polygon = PackedVector2Array(88, 141, 135, 161, 198, 181, 203, 216, 183, 241, 73, 235, 51, 221, 68, 172)
 metadata/map_polygon_editor = true
 metadata/map_polygon_type = "Collision"
+
+[node name="Occlusion_001" type="Polygon2D" parent="Polygons" unique_id=1861577491]
+color = Color(0, 0, 0, 0.35)
+polygon = PackedVector2Array(83, 119, 129, 160, 178, 178, 213, 178, 208, 233, 152, 262, 29, 252, 15, 214, 32, 160, 58, 137)
+metadata/map_polygon_editor = true
+metadata/map_polygon_type = "Occlusion"

@@ -28,6 +28,7 @@ namespace LccHotfix
             ProcedureService.SetProcedureHelper(new DefaultProcedureHelper());
             UIService = Current.AddModule<UIManager>();
             ThreadSyncService = Current.AddModule<ThreadSyncManager>();
+            MapPolygonService = Current.AddModule<MapPolygonManager>();
         }
 
         public override void OnInitialize()
@@ -68,5 +69,6 @@ namespace LccHotfix
 
     internal partial class Main
     {
+        public static IMapPolygonService MapPolygonService { get; set; }
     }
 }
